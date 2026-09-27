@@ -46,6 +46,7 @@ if (institutional && teacherCopy) {
   generalButton.addEventListener('click', () => { institutional.scrollIntoView({ behavior: 'smooth', block: 'start' }); $('#teacher-password')?.focus(); });
 }
 $('#doc-upload')?.closest('.upload-label')?.remove();
+$('#csv-upload')?.closest('.upload-label')?.remove();
 const generalDashboard = $('#database-summary');
 if (generalDashboard) {
   generalDashboard.innerHTML = '<div class="general-dashboard-head"><div><span class="eyebrow"><span></span> Datos generales</span><h3>Resumen de prematrícula y matrícula</h3><p>Base institucional cargada desde el repositorio · solo lectura para docentes</p></div><span class="status-pill">Actualizable por administración</span></div><div class="database-summary-cards"><div><b id="db-total">0</b><span>Total de registros</span></div><div><b id="db-visible">0</b><span>Registros filtrados</span></div><div><b id="db-duplicates">0</b><span>Duplicados</span></div></div><div class="specialty-metrics" id="specialty-metrics"></div><div class="duplicate-list" id="duplicate-list"></div><div class="database-table-wrap"><table class="database-table"><thead><tr><th>Estudiante</th><th>Identificación</th><th>Especialidad</th><th>Correo / contacto</th><th>Estado</th><th>Acción</th></tr></thead><tbody id="csv-table-body"><tr><td colspan="6">Cargando base institucional…</td></tr></tbody></table></div><p id="db-source" class="database-source">La base se actualiza mediante nuevos commits del repositorio.</p>';
