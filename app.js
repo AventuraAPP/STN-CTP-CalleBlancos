@@ -100,7 +100,7 @@ function updateDashboard() {
   renderAppointments($('.specialty-tab.active')?.dataset.specialty || 'Todas');
 }
 const teacherSection = document.querySelector('.teacher-section');
-const setTeacherPortalState = active => teacherSection?.classList.toggle('teacher-portal-active', active);
+const setTeacherPortalState = active => { if (!teacherSection) return; teacherSection.classList.toggle('teacher-portal-active', active); teacherSection.style.gridTemplateColumns = active ? '1fr' : ''; if (active) { teacherSection.querySelector('.teacher-copy')?.style.setProperty('grid-column', '1 / -1'); teacherSection.querySelector('.teacher-access')?.style.setProperty('grid-column', '1 / -1'); } else { teacherSection.querySelector('.teacher-copy')?.style.removeProperty('grid-column'); teacherSection.querySelector('.teacher-access')?.style.removeProperty('grid-column'); } };
 $('#teacher-login').addEventListener('submit', e => { e.preventDefault(); const message = $('#login-message'); if ($('#teacher-password').value === 'RoyAdmSTN') { $('#teacher-login').classList.add('hidden'); $('#teacher-dashboard').classList.remove('hidden'); setTeacherPortalState(true); sessionStorage.setItem('stn-teacher', 'true'); updateDashboard(); } else { message.textContent = 'Contraseña incorrecta.'; message.classList.add('error'); } });
 if (sessionStorage.getItem('stn-teacher')) { $('#teacher-login').classList.add('hidden'); $('#teacher-dashboard').classList.remove('hidden'); setTeacherPortalState(true); updateDashboard(); }
 $('#logout').addEventListener('click', () => { sessionStorage.removeItem('stn-teacher'); $('#teacher-dashboard').classList.add('hidden'); $('#teacher-login').classList.remove('hidden'); setTeacherPortalState(false); $('#teacher-password').value = ''; });
