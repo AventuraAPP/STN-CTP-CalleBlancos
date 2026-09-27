@@ -3,6 +3,9 @@ const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector
 
 const menu = $('.menu-toggle');
 const nav = $('.main-nav');
+document.querySelector('.teams-link')?.remove();
+const portalHeading = document.querySelector('.teacher-access h3');
+if (portalHeading) portalHeading.textContent = 'Portal docente';
 menu.addEventListener('click', () => { const open = nav.classList.toggle('open'); menu.setAttribute('aria-expanded', open); menu.textContent = open ? '×' : '☰'; });
 $$('.main-nav a').forEach(a => a.addEventListener('click', () => { nav.classList.remove('open'); menu.textContent = '☰'; menu.setAttribute('aria-expanded', 'false'); }));
 
