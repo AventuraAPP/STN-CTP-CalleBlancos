@@ -41,6 +41,8 @@ function renderPosts() {
 
 // Mejoras institucionales: dashboard general, base persistente del repositorio y buzón identificado.
 setTimeout(() => {
+const endTeacherArea = $('.teacher-section'), teacherAgendaSection = $('.agenda-section');
+if (endTeacherArea && teacherAgendaSection) { endTeacherArea.parentNode.insertBefore(teacherAgendaSection, endTeacherArea); teacherAgendaSection.classList.add('teacher-agenda-end'); endTeacherArea.classList.add('teacher-portal-end'); }
 const institutional = $('.teacher-section');
 const teacherCopy = $('.teacher-copy');
 const teacherAgendaGeneral = $('.teacher-agenda');
@@ -63,6 +65,7 @@ if (generalDashboard) {
   $$('.specialty-tab').forEach(tab => tab.addEventListener('click', () => { generalState.filter = tab.dataset.specialty; renderGeneralDashboard(); }));
   $('#teacher-login')?.addEventListener('submit', () => setTimeout(loadRepositoryDatabase, 250));
   if (sessionStorage.getItem('stn-teacher')) loadRepositoryDatabase();
+  document.querySelector('.nav-lock')?.addEventListener('click', () => setTimeout(loadRepositoryDatabase, 250));
   renderGeneralDashboard();
 }
 
