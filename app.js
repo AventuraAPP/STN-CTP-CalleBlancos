@@ -37,6 +37,7 @@ function renderPosts() {
 }
 
 // Mejoras institucionales: dashboard general, base persistente del repositorio y buzón identificado.
+setTimeout(() => {
 const institutional = $('.teacher-section');
 const teacherCopy = $('.teacher-copy');
 const teacherAgendaGeneral = $('.teacher-agenda');
@@ -73,6 +74,7 @@ if (communityForm && communityFeed) {
   communityFeed.addEventListener('click', e => { const button = e.target.closest('.reply-post,.ai-post'); if (!button) return; const posts = loadPosts(), post = posts.find(x => x.id === button.dataset.id); if (!post) return; const isAi = button.classList.contains('ai-post'), reply = isAi ? assistantReply(post.text) : prompt(`Responder a ${post.name}:`); if (!reply?.trim()) return; (post.replies ||= []).push({ author: isAi ? 'Asistente IA STN' : 'Equipo STN', text: reply.trim() }); savePosts(posts); renderPosts(); });
   renderPosts();
 }
+}, 0);
 function escapeHtml(text) { const el = document.createElement('div'); el.textContent = text; return el.innerHTML; }
 const postText = $('#post-text');
 postText.addEventListener('input', () => $('.character-count').textContent = `${postText.value.length} / 400`);
