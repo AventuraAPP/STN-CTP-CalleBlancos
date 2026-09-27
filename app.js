@@ -15,7 +15,7 @@ const mallas = {
   'image7.png': ['assets/mallas-2026/image7.png', 'Malla curricular de referencia: Electromecánica.'],
   'textiles-2027.png': ['assets/malla-textiles-2027.png', 'Estructura curricular adjunta: Diseño de Productos Industriales Textiles.']
 };
-$$('.curriculum-trigger').forEach(button => button.addEventListener('click', () => { const [src, caption] = mallas[button.dataset.curriculum]; $('#curriculum-image').src = src; $('#curriculum-caption').textContent = caption; dialog.showModal(); }));
+$$('.curriculum-trigger').forEach(button => button.addEventListener('click', () => { if (!button.dataset.curriculum) return; const [src, caption] = mallas[button.dataset.curriculum]; $('#curriculum-image').src = src; $('#curriculum-caption').textContent = caption; dialog.showModal(); }));
 $('.dialog-close').addEventListener('click', () => dialog.close());
 dialog.addEventListener('click', e => { if (e.target === dialog) dialog.close(); });
 
@@ -61,3 +61,16 @@ $('#save-appointment').addEventListener('click', () => { const date = $('#teache
 $$('.specialty-tab').forEach(tab => tab.addEventListener('click', () => { $$('.specialty-tab').forEach(t => t.classList.remove('active')); tab.classList.add('active'); renderAppointments(tab.dataset.specialty); }));
 $('#edit-ticker').addEventListener('click', () => { const message = prompt('Mensaje institucional visible para la comunidad:', localStorage.getItem('stn-ticker') || $('#ticker-message').textContent); if (message?.trim()) { localStorage.setItem('stn-ticker', message.trim()); $('#ticker-message').textContent = message.trim(); } });
 $('#ticker-message').textContent = localStorage.getItem('stn-ticker') || $('#ticker-message').textContent;
+
+const assistantReplies = [
+  { keys: ['prematr', 'formulario', 'inscrib', 'inscrip'], text: 'La pre-matrícula 2027 se completa en el formulario oficial. Usá el botón “Pre-matrícula 2027” o escribinos por WhatsApp al 6195-5775.' },
+  { keys: ['especial', 'oferta', 'carrera', 'ciber', 'contab', 'comercial', 'aire', 'electrom', 'textil', 'diseño'], text: 'La oferta 2027 incluye Ciberseguridad, Contabilidad, Ejecutivo Comercial y Servicio al Cliente, Mantenimiento de Sistemas de Aire Acondicionado Industrial, Electromecánica y Diseño de Productos Industriales Textiles.' },
+  { keys: ['hora', 'horario', 'noche', 'cita', 'examen', 'entrevista'], text: 'Las citas de entrevista y examen las administra cada docente desde el Portal para docentes, de lunes a viernes entre 6:00 p. m. y 9:00 p. m.' },
+  { keys: ['whatsapp', 'teléfono', 'telefono', 'contacto', 'ubicación', 'ubicacion'], text: 'Podés contactarnos por WhatsApp al 6195-5775. También encontrás el enlace directo en la página.' },
+  { keys: ['docente', 'portal', 'teams'], text: 'El Portal para docentes está protegido y contiene una pestaña por especialidad, agenda, registros y documentos informativos.' }
+];
+function assistantReply(question) { const q = question.toLowerCase(); const found = assistantReplies.find(item => item.keys.some(key => q.includes(key))); return found?.text || 'Puedo orientarte sobre pre-matrícula, especialidades, horarios de examen y entrevista, Portal docente o WhatsApp. ¿Qué necesitás saber?'; }
+const assistantLaunch = $('#assistant-launch'), assistantPanel = $('#assistant-panel'), assistantForm = $('#assistant-form'), assistantInput = $('#assistant-input'), assistantMessages = $('#assistant-messages');
+assistantLaunch.addEventListener('click', () => { const open = assistantPanel.classList.toggle('hidden'); assistantLaunch.setAttribute('aria-expanded', String(!open)); if (!open) assistantInput.focus(); });
+$('#assistant-close').addEventListener('click', () => { assistantPanel.classList.add('hidden'); assistantLaunch.setAttribute('aria-expanded', 'false'); });
+assistantForm.addEventListener('submit', e => { e.preventDefault(); const question = assistantInput.value.trim(); if (!question) return; assistantMessages.insertAdjacentHTML('beforeend', `<div class="assistant-bubble user">${escapeHtml(question)}</div><div class="assistant-bubble">${escapeHtml(assistantReply(question))}</div>`); assistantInput.value = ''; assistantMessages.scrollTop = assistantMessages.scrollHeight; });
