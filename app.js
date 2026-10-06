@@ -16,6 +16,7 @@ const DEPARTMENT_PASSWORDS = Object.freeze({
   'Diseño de Productos Industriales Textiles': 'STNTextil27!'
 });
 const teacherAccess = { role: null, specialty: null };
+let loadTeacherDatabaseForSession = () => {};
 const getDepartmentPasswords = () => {
   try {
     const stored = JSON.parse(localStorage.getItem('stn-department-passwords') || 'null');
@@ -312,6 +313,7 @@ function enterTeacherPortal(role, specialty = null) {
   teacherGate?.classList.add('hidden'); teacherLogin?.classList.add('hidden'); teacherDashboard?.classList.remove('hidden'); teacherSection?.classList.remove('teacher-locked'); setTeacherPortalState(true); applyTeacherAccess();
   sessionStorage.setItem('stn-teacher-session', JSON.stringify({ role, specialty }));
   updateDashboard();
+  loadTeacherDatabaseForSession();
 }
 const setTeacherPortalState = active => { if (!teacherSection) return; teacherSection.classList.toggle('teacher-portal-active', active); teacherSection.style.gridTemplateColumns = active ? '1fr' : ''; const copy = teacherSection.querySelector('.teacher-copy'); const access = teacherSection.querySelector('.teacher-access'); const note = teacherSection.querySelector('.security-note'); if (active) { copy?.style.setProperty('grid-column', '1 / -1'); access?.style.setProperty('grid-column', '1 / -1'); note?.style.setProperty('grid-column', '1 / -1'); } else { copy?.style.removeProperty('grid-column'); access?.style.removeProperty('grid-column'); note?.style.removeProperty('grid-column'); } };
 teacherLogin?.addEventListener('submit', e => { e.preventDefault(); const message = $('#login-message'), password = $('#teacher-password')?.value || '', specialty = teacherDepartmentSelect.value, passwords = getDepartmentPasswords(); message.classList.remove('error'); if (password === TEACHER_ADMIN_PASSWORD) enterTeacherPortal('admin'); else if (passwords[specialty] === password) enterTeacherPortal('department', specialty); else { message.textContent = 'Contraseña incorrecta para este departamento.'; message.classList.add('error'); } });
@@ -352,6 +354,42 @@ if (teacherAgenda) {
   function field(record, matcher) { const key = Object.keys(record).find(k => matcher.test(k)); return key ? record[key] : ''; }
   function normalizeSpecialty(value) { const v = value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); if (v.includes('refriger') || v.includes('aire acondicionado')) return 'Mantenimiento de Sistemas de Aire Acondicionado Industrial'; if (v.includes('ciber')) return 'Ciberseguridad'; if (v.includes('contab')) return 'Contabilidad'; if (v.includes('comercial') || v.includes('servicio al cliente')) return 'Ejecutivo Comercial y Servicio al Cliente'; if (v.includes('textil') || v.includes('diseño de productos')) return 'Diseño de Productos Industriales Textiles'; if (v.includes('electrom')) return 'Electromecánica'; return value || 'Sin especialidad'; }
   function prepareRecords(raw) { const records = raw.map((r, index) => ({ raw: r, index, name: field(r, /nombre completo/i) || 'Sin nombre', id: field(r, /cedula|documento de identidad/i), email: field(r, /correo electr/i), phone: field(r, /telefono principal/i), specialty: normalizeSpecialty(field(r, /especialidad.*matricular/i)), province: field(r, /provincia/i), canton: field(r, /canton/i), timestamp: field(r, /marca temporal/i) })); const groups = {}; records.forEach(r => { const key = (r.id || r.name).toLowerCase().replace(/\s+/g, ' ').trim(); (groups[key] ||= []).push(r); }); records.forEach(r => { const key = (r.id || r.name).toLowerCase().replace(/\s+/g, ' ').trim(), group = groups[key] || []; r.duplicateSpecialties = [...new Set(group.map(x => x.specialty))]; r.duplicate = group.length > 1; }); return records; }
+  function loadRemoteTeacherDatabase() {
+    if (!SYNC_ENDPOINT || SYNC_ENDPOINT.includes('PASTE_')) return;
+    const callback = `stnReceiveTeacherDatabase_${Date.now()}`;
+    window[callback] = payload => {
+      if (!payload?.ok || !Array.isArray(payload.rows)) return;
+      const headers = payload.headers || [];
+      const raw = payload.rows.map(row => Object.fromEntries(headers.map((header, index) => [header, row[index] || ''])));
+      csvState.records.splice(0, csvState.records.length, ...prepareRecords(raw));
+      renderDatabase();
+      $('#db-source').textContent = `Base sincronizada en tiempo real · ${csvState.records.length} registros · búsqueda en todos los campos`;
+      delete window[callback];
+      script.remove();
+    };
+    const script = document.createElement('script');
+    script.src = `${SYNC_ENDPOINT}?callback=${callback}&_=${Date.now()}`;
+    script.onerror = () => { delete window[callback]; script.remove(); };
+    document.body.append(script);
+  }
+  async function loadTeacherDatabase() {
+    try {
+      const imported = localStorage.getItem('stn-imported-csv');
+      if (imported) csvState.records.splice(0, csvState.records.length, ...prepareRecords(csvParse(imported)));
+      else {
+        const response = await fetch('data/base-datos-2026.csv?v=20261006-database');
+        if (response.ok) csvState.records.splice(0, csvState.records.length, ...prepareRecords(csvParse(await response.text())));
+      }
+      renderDatabase();
+      $('#db-source').textContent = `Base institucional · ${csvState.records.length} registros · sincronizando…`;
+      loadRemoteTeacherDatabase();
+      startTeacherDatabaseRefresh();
+    } catch (_) { $('#db-source').textContent = 'No fue posible cargar la base institucional.'; }
+  }
+  loadTeacherDatabaseForSession = loadTeacherDatabase;
+  if (teacherAccess.role) loadTeacherDatabaseForSession();
+  let teacherDatabaseTimer;
+  function startTeacherDatabaseRefresh() { if (!teacherDatabaseTimer) teacherDatabaseTimer = setInterval(loadRemoteTeacherDatabase, 30000); }
   function renderDatabase() { const activeFilter = allowedTeacherSpecialty() || csvState.filter, search = csvState.search.trim().toLowerCase(), scopedRows = csvState.records.filter(r => activeFilter === 'Todas' || r.specialty === activeFilter), rows = scopedRows.filter(r => !search || [r.name, r.id, r.email, r.phone, r.specialty, ...Object.values(r.raw)].join(' ').toLowerCase().includes(search)), duplicateCount = rows.filter(r => r.duplicate).length; $('#db-total').textContent = csvState.records.length; $('#db-visible').textContent = rows.length; $('#db-duplicates').textContent = duplicateCount; $('#db-source').textContent = csvState.records.length ? `Base cargada en este dispositivo · filtro: ${activeFilter}${search ? ` · búsqueda: ${csvState.search.trim()}` : ''}` : 'Importá la base CSV desde este dispositivo para ver prematrícula y matrícula. La información no se publica.'; $('#csv-table-body').innerHTML = rows.length ? rows.map(r => `<tr class="${r.duplicate ? 'is-duplicate' : ''}"><td><b>${escapeHtml(r.name)}</b><details><summary>Ver todos los datos</summary><dl>${Object.entries(r.raw).map(([k, v]) => `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v || '—')}</dd>`).join('')}</dl></details></td><td>${escapeHtml(r.id || '—')}</td><td>${escapeHtml(r.specialty)}</td><td><a href="mailto:${encodeURIComponent(r.email)}">${escapeHtml(r.email || '—')}</a><small>${escapeHtml(r.phone || '')}</small></td><td>${r.duplicate ? `<span class="duplicate-badge">Duplicado · ${escapeHtml(r.duplicateSpecialties.join(', '))}</span>` : '<span class="ok-badge">Registro único</span>'}</td><td><button class="table-action" data-record="${r.index}" type="button">Agendar</button></td></tr>`).join('') : '<tr><td colspan="6">No hay registros para esta búsqueda o especialidad.</td></tr>'; $$('.table-action', db).forEach(btn => btn.addEventListener('click', () => { const r = csvState.records.find(x => x.index === Number(btn.dataset.record)); if (!r || (allowedTeacherSpecialty() && r.specialty !== allowedTeacherSpecialty())) return; $('#teacher-candidate').value = r.name; $('#teacher-candidate-email').value = r.email; $('#teacher-candidate-contact').value = r.phone; $('#teacher-specialty').value = r.specialty; teacherAgenda.scrollIntoView({ behavior: 'smooth', block: 'center' }); })); }
   $('#student-search').addEventListener('input', e => { csvState.search = e.target.value; renderDatabase(); });
   $('#clear-student-search').addEventListener('click', () => { csvState.search = ''; $('#student-search').value = ''; renderDatabase(); $('#student-search').focus(); });
