@@ -70,6 +70,14 @@ const teacherAgendaGeneral = $('.teacher-agenda');
 // se omite el botón público «Datos generales» para mantener el acceso discreto.
 $('#doc-upload')?.closest('.upload-label')?.remove();
 const generalDashboard = $('#database-summary');
+window.addEventListener('stn-prematricula-saved', event => {
+  if (!generalDashboard || typeof generalState === 'undefined' || typeof prepareGeneralRecords !== 'function') return;
+  const native = event.detail ? [event.detail] : JSON.parse(localStorage.getItem('stn-prematriculas') || '[]');
+  const toRaw = record => ({ __nativeKey: record.createdAt || `${record.identification}-${record.name}`, 'Marca temporal': record.createdAt || '', 'Nombre completo y apellidos - Como aparece en la cédula': record.name || '', 'Cédula o documento de identidad = Formato 0-0000-0000': record.identification || '', Edad: record.age || '', 'Teléfono Principal = Formato 0000-0000': record.phone || '', 'Estudios últimos alcanzados': record.education || '', 'Adjunta el título de noveno año o bachillerato de secundaria obtenido': record.titleFile || '—', 'Especialidad que desearía matricular para el 2027': record.specialty || '', '¿Porque medio se entero de la prematrícula?': record.source || '', 'Correo electrónico personal': record.email || '', 'País de origen': record.country || '', 'Provincia donde vive': record.province || '', 'Cantón donde vive': record.canton || '', 'Dirección exacta de su residencia actual': record.address || '', 'Posee Adecuaciones curriculares de': record.accommodations || '', 'Es usted madre, padre de familia o encargado de alguien': record.guardian || '', 'Cuántos hijos tiene': record.children || '', 'Posee discapacidad': record.disability || '', Estado: record.status || 'Pre-matriculado' });
+  const existingKeys = new Set(generalState.records.map(record => record.raw.__nativeKey).filter(Boolean));
+  const additions = native.filter(record => !existingKeys.has(record.createdAt || `${record.identification}-${record.name}`)).map(toRaw);
+  if (additions.length) { generalState.records = prepareGeneralRecords([...generalState.records.map(record => record.raw), ...additions]); renderGeneralDashboard(); }
+});
 if (generalDashboard) {
   generalDashboard.innerHTML = '<div class="general-dashboard-head"><div><span class="eyebrow"><span></span> Datos generales</span><h3>Resumen de prematrícula y matrícula</h3><p>Base institucional cargada desde el repositorio · solo lectura para docentes</p></div><span class="status-pill">Actualizable por administración</span></div><div class="database-summary-cards"><div><b id="db-total">0</b><span>Total de registros</span></div><div><b id="db-visible">0</b><span>Registros filtrados</span></div><div><b id="db-duplicates">0</b><span>Duplicados</span></div></div><div class="specialty-metrics" id="specialty-metrics"></div><div class="duplicate-list" id="duplicate-list"></div><div class="database-table-wrap"><table class="database-table"><thead><tr><th>Estudiante</th><th>Identificación</th><th>Especialidad</th><th>Correo / contacto</th><th>Estado</th><th>Acción</th></tr></thead><tbody id="csv-table-body"><tr><td colspan="6">Cargando base institucional…</td></tr></tbody></table></div><p id="db-source" class="database-source">La base se actualiza mediante nuevos commits del repositorio.</p>';
   const generalState = { records: [], filter: 'Todas' };
@@ -99,6 +107,7 @@ if (communityForm && communityFeed) {
   renderPosts();
 }
 }, 0);
+setTimeout(() => { if (localStorage.getItem('stn-prematriculas')) window.dispatchEvent(new CustomEvent('stn-prematricula-saved')); }, 1800);
 function escapeHtml(text) { const el = document.createElement('div'); el.textContent = text; return el.innerHTML; }
 const postText = $('#post-text');
 postText.addEventListener('input', () => $('.character-count').textContent = `${postText.value.length} / 400`);
@@ -170,6 +179,8 @@ function installPrematriculaPanel() {
   trigger.addEventListener('click', () => { panel.classList.toggle('hidden'); if (!panel.classList.contains('hidden')) panel.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
   $('#close-prematricula', panel).addEventListener('click', () => panel.classList.add('hidden'));
   $('#native-prematricula-form', panel).addEventListener('submit', event => { event.preventDefault(); const form = event.currentTarget, values = Object.fromEntries(new FormData(form).entries()), file = form.querySelector('[name="titleFile"]')?.files?.[0]; const record = { ...values, titleFile: file?.name || '', status: 'Pre-matriculado', createdAt: new Date().toISOString() }; const records = JSON.parse(localStorage.getItem('stn-prematriculas') || '[]'); records.unshift(record); localStorage.setItem('stn-prematriculas', JSON.stringify(records)); const students = getStudents(); students.unshift({ name: values.name, contact: values.phone || values.email, specialty: values.specialty, status: 'Pre-matriculado', identification: values.identification, email: values.email }); localStorage.setItem('stn-students', JSON.stringify(students)); updateDashboard(); $('#native-prematricula-message', panel).textContent = `✓ Prematrícula guardada para ${values.name}.`; $('#native-prematricula-message', panel).classList.remove('error'); form.reset(); });
+  $('#native-prematricula-form', panel).addEventListener('submit', () => setTimeout(() => { const saved = JSON.parse(localStorage.getItem('stn-prematriculas') || '[]')[0]; if (saved) window.dispatchEvent(new CustomEvent('stn-prematricula-saved', { detail: saved })); }, 0));
+  if (localStorage.getItem('stn-prematriculas')) window.dispatchEvent(new CustomEvent('stn-prematricula-saved'));
 }
 function applyTeacherAccess() {
   const admin = teacherAccess.role === 'admin', specialty = allowedTeacherSpecialty();
