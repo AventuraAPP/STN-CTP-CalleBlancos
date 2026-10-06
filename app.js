@@ -29,7 +29,7 @@ $$('[data-date]').forEach(item => { const passed = new Date(`${item.dataset.date
 
 const samplePosts = [
   { id: 'welcome', name: 'Equipo STN', initials: 'ST', time: 'Información oficial', text: '¡Bienvenidas y bienvenidos! Usá este espacio para consultar sobre el proceso de admisión 2027.', likes: 14 },
-  { id: 'guide', name: 'Orientación STN', initials: 'OR', time: 'Hace poco', text: 'Recordá completar la pre-matrícula y reservar tu cita para entrevista o examen.', likes: 8 }
+  { id: 'guide', name: 'Orientación STN', initials: 'OR', time: 'Hace poco', text: 'Recordá completar la prematrícula y reservar tu cita para entrevista o examen.', likes: 8 }
 ];
 function loadPosts() { return JSON.parse(localStorage.getItem('stn-posts') || 'null') || samplePosts; }
 function savePosts(posts) { localStorage.setItem('stn-posts', JSON.stringify(posts)); }
@@ -112,9 +112,9 @@ $('#edit-ticker').addEventListener('click', () => { const message = prompt('Mens
 $('#ticker-message').textContent = localStorage.getItem('stn-ticker') || $('#ticker-message').textContent;
 
 const assistantReplies = [
-  { keys: ['prematr', 'formulario', 'inscrib', 'inscrip'], text: 'La pre-matrícula 2027 se completa en el formulario oficial. Usá el botón “Pre-matrícula 2027” o escribinos por WhatsApp al 6195-5775.' },
+  { keys: ['prematr', 'formulario', 'inscrib', 'inscrip'], text: 'La prematrícula 2027 se completa en el formulario oficial. Usá el botón “Prematrícula 2027” o escribinos por WhatsApp al 6195-5775.' },
   { keys: ['especial', 'oferta', 'carrera', 'ciber', 'contab', 'comercial', 'aire', 'electrom', 'textil', 'diseño'], text: 'La oferta 2027 incluye Ciberseguridad, Contabilidad, Ejecutivo Comercial y Servicio al Cliente, Mantenimiento de Sistemas de Aire Acondicionado Industrial, Electromecánica y Diseño de Productos Industriales Textiles.' },
-  { keys: ['hora', 'horario', 'noche', 'cita', 'examen', 'entrevista'], text: 'Las citas de entrevista y examen las administra cada docente desde el Portal para docentes, de lunes a viernes entre 6:00 p. m. y 9:00 p. m.' },
+  { keys: ['hora', 'horario', 'noche', 'cita', 'examen', 'entrevista'], text: 'Las citas de entrevista y examen las administra cada docente desde el Portal para docentes, de lunes a viernes, entre las 6:00 p. m. y las 9:00 p. m.' },
   { keys: ['whatsapp', 'teléfono', 'telefono', 'contacto', 'ubicación', 'ubicacion'], text: 'Podés contactarnos por WhatsApp al 6195-5775. También encontrás el enlace directo en la página.' },
   { keys: ['docente', 'portal', 'teams'], text: 'El Portal para docentes está protegido y contiene una pestaña por especialidad, agenda, registros y documentos informativos.' }
 ];
