@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#071b3b">
+  <meta name="description" content="Formulario de prematrícula 2027 de la Sección Técnica Nocturna del CTP Calle Blancos.">
+  <title>Prematrícula 2027 · STN CTP Calle Blancos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=20261006-native-db-form-window">
+</head>
+<body class="prematricula-page">
+  <main class="prematricula-shell">
+    <a class="prematricula-back" href="index.html">← Volver al sitio STN</a>
+    <section class="native-prematricula-panel">
+      <div class="native-prematricula-head">
+        <div>
+          <span class="eyebrow"><span></span> Registro en la base STN</span>
+          <h1>Prematrícula 2027</h1>
+          <p>Formulario propio del sistema para iniciar el proceso de admisión de la Sección Técnica Nocturna.</p>
+        </div>
+        <img class="prematricula-crest" src="assets/escudo-ctp.png" alt="Escudo del CTP Calle Blancos">
+      </div>
+      <div class="native-form-notice"><b>Antes de comenzar</b><span>Usá los datos tal como aparecen en la cédula. Los campos con asterisco son obligatorios.</span></div>
+      <form id="public-prematricula-form" class="native-prematricula-form">
+        <label>Nombre completo y apellidos *<input name="name" required placeholder="Como aparece en la cédula"></label>
+        <label>Cédula o documento de identidad *<input name="identification" required placeholder="0-0000-0000"></label>
+        <label>Edad *<input name="age" type="number" min="14" max="99" required></label>
+        <label>Teléfono principal *<input name="phone" required placeholder="0000-0000"></label>
+        <label>Estudios últimos alcanzados *<select name="education" required><option value="">Seleccioná una opción</option><option>Noveno año de Secundaria</option><option>Bachiller de Secundaria</option><option>Graduado de Técnico Medio</option><option>Diplomado Universitario</option><option>Bachiller Universitario</option><option>Licenciado(a)</option></select></label>
+        <label>Adjuntar título de noveno o bachillerato<input name="titleFile" type="file" accept=".pdf,image/*"></label>
+        <label>Especialidad que desea matricular *<select name="specialty" required><option value="">Seleccioná una especialidad</option><option>Ciberseguridad</option><option>Electromecánica</option><option>Mantenimiento de Sistemas de Aire Acondicionado Industrial</option><option>Diseño de Productos Industriales Textiles</option><option>Ejecutivo Comercial y Servicio al Cliente</option><option>Contabilidad</option></select></label>
+        <label>¿Por qué medio se enteró? *<select name="source" required><option value="">Seleccioná una opción</option><option>Open House</option><option>Página Facebook de la Sección Técnica Nocturna</option><option>Redes sociales</option><option>Amigos o conocidos</option></select></label>
+        <label>Correo electrónico personal *<input name="email" type="email" required placeholder="estudiante@correo.com"></label>
+        <label>País de origen *<select name="country" required><option>Costa Rica</option><option>Nicaragua</option><option>Venezuela</option><option>Colombia</option><option>Otro</option></select></label>
+        <label>Provincia donde vive *<select name="province" required><option>San José</option><option>Heredia</option><option>Alajuela</option><option>Cartago</option></select></label>
+        <label>Cantón donde vive *<select name="canton" required><option>Central</option><option>San José</option><option>Escazú</option><option>Desamparados</option><option>Goicoechea</option><option>Alajuelita</option><option>Vásquez de Coronado</option><option>Tibás</option><option>Moravia</option><option>Montes de Oca</option><option>Curridabat</option><option>Otro</option></select></label>
+        <label class="full-field">Dirección exacta de su residencia actual *<textarea name="address" rows="2" required></textarea></label>
+        <label>Posee adecuaciones curriculares *<select name="accommodations" required><option>No tengo adecuaciones</option><option>Adecuaciones de acceso</option><option>Adecuaciones no significativas</option><option>Adecuaciones significativas</option></select></label>
+        <label>¿Es madre, padre o encargado? *<select name="guardian" required><option>Si</option><option>No</option></select></label>
+        <label>¿Cuántos hijos tiene? *<select name="children" required><option>1-2</option><option>3-4</option><option>Más de 4</option><option>No tengo hijos</option></select></label>
+        <label>Posee discapacidad *<select name="disability" required><option>Ninguna</option><option>Sensorial visual</option><option>Sensorial auditiva</option><option>Motriz</option><option>Otra</option></select></label>
+        <div class="native-prematricula-footer full-field"><b>Nota importante</b><span>La prematrícula inicia el proceso; posteriormente se comunicarán las fechas de entrevista, examen y entrega de documentos.</span></div>
+        <button class="btn btn-primary full-field" type="submit">Enviar prematrícula al sistema <span>→</span></button>
+        <p class="form-message full-field" id="public-prematricula-message" role="status"></p>
+      </form>
+    </section>
+  </main>
+  <script src="prematricula.js?v=20261006-native-db-form-window"></script>
+</body>
+</html>

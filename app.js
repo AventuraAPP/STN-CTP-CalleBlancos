@@ -165,27 +165,6 @@ if (communityForm && communityFeed) {
 }, 0);
 setTimeout(() => { if (localStorage.getItem('stn-prematriculas')) window.dispatchEvent(new CustomEvent('stn-prematricula-saved')); }, 1800);
 function escapeHtml(text) { const el = document.createElement('div'); el.textContent = text; return el.innerHTML; }
-const publicPrematriculaForm = $('#public-prematricula-form');
-publicPrematriculaForm?.addEventListener('submit', event => {
-  event.preventDefault();
-  const form = event.currentTarget;
-  const values = Object.fromEntries(new FormData(form).entries());
-  const file = form.querySelector('[name="titleFile"]')?.files?.[0];
-  const record = { ...values, titleFile: file?.name || '', status: 'Pre-matriculado', createdAt: new Date().toISOString() };
-  const records = JSON.parse(localStorage.getItem('stn-prematriculas') || '[]');
-  records.unshift(record);
-  localStorage.setItem('stn-prematriculas', JSON.stringify(records));
-  syncPrematriculaToRemote(record);
-  const students = getStudents();
-  students.unshift({ name: values.name, contact: values.phone || values.email, specialty: values.specialty, status: 'Pre-matriculado', identification: values.identification, email: values.email });
-  localStorage.setItem('stn-students', JSON.stringify(students));
-  updateDashboard();
-  const message = $('#public-prematricula-message');
-  message.textContent = `✓ Prematrícula registrada para ${values.name}.`;
-  message.classList.remove('error');
-  form.reset();
-  window.dispatchEvent(new CustomEvent('stn-prematricula-saved', { detail: record }));
-});
 const postText = $('#post-text');
 postText.addEventListener('input', () => $('.character-count').textContent = `${postText.value.length} / 400`);
 $('#post-form').addEventListener('submit', e => { e.preventDefault(); const text = postText.value.trim(); if (!text) return; const posts = loadPosts(); posts.unshift({ id: Date.now().toString(), name: 'Consulta de visitante', initials: 'CV', time: 'Ahora', text, likes: 0 }); savePosts(posts); postText.value = ''; $('.character-count').textContent = '0 / 400'; renderPosts(); });
