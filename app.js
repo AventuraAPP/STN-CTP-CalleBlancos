@@ -4,6 +4,9 @@ const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector
 // Acceso por departamento para el Portal docente. En GitHub Pages este control
 // protege la interfaz, pero no sustituye un backend con autenticación real.
 const TEACHER_ADMIN_PASSWORD = 'RoyAdmSTN';
+// Endpoint de Google Apps Script para sincronización compartida.
+// Se completa después de publicar la implementación como aplicación web.
+const SYNC_ENDPOINT = 'PASTE_DEPLOYED_URL_HERE';
 const DEPARTMENT_PASSWORDS = Object.freeze({
   'Ciberseguridad': 'STNCiber27!',
   'Contabilidad': 'STNConta27!',
@@ -20,6 +23,42 @@ const getDepartmentPasswords = () => {
   } catch (_) { return { ...DEPARTMENT_PASSWORDS }; }
 };
 const allowedTeacherSpecialty = () => teacherAccess.role === 'department' ? teacherAccess.specialty : null;
+
+function nativeRecordToRemotePayload(record) {
+  return {
+    'Marca temporal': record.createdAt || new Date().toISOString(),
+    'Nombre completo y apellidos - Como aparece en la cédula': record.name || '',
+    'Cédula o documento de identidad = Formato 0-0000-0000': record.identification || '',
+    'Edad': record.age || '',
+    'Teléfono Principal = Formato 0000-0000': record.phone || '',
+    'Estudios últimos alcanzados': record.education || '',
+    'Adjunta el título de noveno año o bachillerato de secundaria obtenido': record.titleFile || '—',
+    'Especialidad que desearía matricular para el 2027': record.specialty || '',
+    '¿Porque medio se entero de la prematrícula?': record.source || '',
+    'Correo electrónico personal': record.email || '',
+    'País de origen': record.country || '',
+    'Provincia donde vive': record.province || '',
+    'Cantón donde vive': record.canton || '',
+    'Dirección exacta de su residencia actual': record.address || '',
+    'Posee Adecuaciones curriculares de': record.accommodations || '',
+    'Es usted madre, padre de familia o encargado de alguien': record.guardian || '',
+    'Cuántos hijos tiene': record.children || '',
+    'Posee discapacidad': record.disability || '',
+    'Estado': record.status || 'Pre-matriculado'
+  };
+}
+
+async function syncPrematriculaToRemote(record) {
+  if (!SYNC_ENDPOINT || SYNC_ENDPOINT.includes('PASTE_')) return;
+  try {
+    await fetch(SYNC_ENDPOINT, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(nativeRecordToRemotePayload(record))
+    });
+  } catch (_) { /* El guardado local continúa aunque el servicio no responda. */ }
+}
 
 const menu = $('.menu-toggle');
 const nav = $('.main-nav');
@@ -86,7 +125,24 @@ if (generalDashboard) {
   function normalizeGeneralSpecialty(value) { const v = value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); if (v.includes('refriger') || v.includes('aire acondicionado')) return 'Mantenimiento de Sistemas de Aire Acondicionado Industrial'; if (v.includes('ciber')) return 'Ciberseguridad'; if (v.includes('contab')) return 'Contabilidad'; if (v.includes('comercial') || v.includes('servicio al cliente')) return 'Ejecutivo Comercial y Servicio al Cliente'; if (v.includes('textil') || v.includes('diseño de productos')) return 'Diseño de Productos Industriales Textiles'; if (v.includes('electrom')) return 'Electromecánica'; return value || 'Sin especialidad'; }
   function prepareGeneralRecords(raw) { const records = raw.map((r, index) => ({ raw: r, index, name: getGeneralField(r, /nombre completo/i) || 'Sin nombre', id: getGeneralField(r, /cedula|documento de identidad/i), email: getGeneralField(r, /correo electr/i), phone: getGeneralField(r, /telefono principal/i), specialty: normalizeGeneralSpecialty(getGeneralField(r, /especialidad.*matricular/i)), province: getGeneralField(r, /provincia/i), canton: getGeneralField(r, /canton/i) })); const groups = {}; records.forEach(r => { const key = (r.id || r.name).toLowerCase().replace(/\s+/g, ' ').trim(); (groups[key] ||= []).push(r); }); records.forEach(r => { const key = (r.id || r.name).toLowerCase().replace(/\s+/g, ' ').trim(), group = groups[key] || []; r.duplicateSpecialties = [...new Set(group.map(x => x.specialty))]; r.duplicate = group.length > 1; }); return records; }
   function renderGeneralDashboard() { const activeFilter = allowedTeacherSpecialty() || generalState.filter; const rows = generalState.records.filter(r => activeFilter === 'Todas' || r.specialty === activeFilter), counts = {}; generalState.records.forEach(r => { counts[r.specialty] = (counts[r.specialty] || 0) + 1; }); $('#db-total').textContent = generalState.records.length; $('#db-visible').textContent = rows.length; $('#db-duplicates').textContent = rows.filter(r => r.duplicate).length; $('#specialty-metrics').innerHTML = Object.entries(counts).filter(([name]) => !allowedTeacherSpecialty() || name === allowedTeacherSpecialty()).map(([name, count]) => `<button class="metric-card ${activeFilter === name ? 'active' : ''}" data-metric="${escapeHtml(name)}"><b>${count}</b><span>${escapeHtml(name)}</span></button>`).join(''); const duplicateGroups = rows.filter(r => r.duplicate && r.duplicateSpecialties.length > 1); $('#duplicate-list').innerHTML = duplicateGroups.length ? `<h4>Estudiantes con matrícula o prematrícula en más de una especialidad</h4>${duplicateGroups.map(r => `<span class="duplicate-chip">${escapeHtml(r.name)} · ${escapeHtml(r.duplicateSpecialties.join(' / '))}</span>`).join('')}` : '<h4>Duplicados</h4><p>No se detectan duplicados en el filtro actual.</p>'; $('#csv-table-body').innerHTML = rows.length ? rows.map(r => `<tr class="${r.duplicate ? 'is-duplicate' : ''}"><td><b>${escapeHtml(r.name)}</b><details><summary>Todos los datos</summary><dl>${Object.entries(r.raw).map(([k, v]) => `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v || '—')}</dd>`).join('')}</dl></details></td><td>${escapeHtml(r.id || '—')}</td><td>${escapeHtml(r.specialty)}</td><td><a href="mailto:${encodeURIComponent(r.email)}">${escapeHtml(r.email || '—')}</a><small>${escapeHtml(r.phone || '')}</small></td><td>${r.duplicate ? `<span class="duplicate-badge">Duplicado</span>` : '<span class="ok-badge">Registro único</span>'}</td><td><button class="table-action" data-general-record="${r.index}" type="button">Agendar</button></td></tr>`).join('') : '<tr><td colspan="6">No hay registros para este filtro.</td></tr>'; $$('.metric-card', generalDashboard).forEach(card => card.addEventListener('click', () => { if (!allowedTeacherSpecialty()) generalState.filter = card.dataset.metric; renderGeneralDashboard(); })); $$('.table-action', generalDashboard).forEach(button => button.addEventListener('click', () => { const r = generalState.records.find(x => x.index === Number(button.dataset.generalRecord)); if (!r || (allowedTeacherSpecialty() && r.specialty !== allowedTeacherSpecialty())) return; $('#teacher-candidate').value = r.name; $('#teacher-candidate-email').value = r.email; $('#teacher-candidate-contact').value = r.phone; $('#teacher-specialty').value = r.specialty; teacherAgendaGeneral?.scrollIntoView({ behavior: 'smooth', block: 'center' }); })); }
-  async function loadRepositoryDatabase() { try { const imported = localStorage.getItem('stn-imported-csv'); let csvText = imported; if (!csvText) { const response = await fetch('data/base-datos-2026.csv?v=20260927'); if (!response.ok) throw new Error('No se pudo cargar la base'); csvText = await response.text(); } generalState.records = prepareGeneralRecords(parseCsvGeneral(csvText)); renderGeneralDashboard(); $('#db-source').textContent = `${imported ? 'Base importada en este dispositivo' : 'Base institucional'} · ${generalState.records.length} registros · solo lectura`; } catch (error) { $('#db-source').textContent = 'No fue posible cargar la base institucional. Verificá la conexión y el último commit.'; } }
+  function loadRemotePrematriculas() {
+    if (!SYNC_ENDPOINT || SYNC_ENDPOINT.includes('PASTE_')) return;
+    window.stnReceiveRemoteDatabase = payload => {
+      if (!payload?.ok || !Array.isArray(payload.rows)) return;
+      const headers = payload.headers || [];
+      const remoteRaw = payload.rows.map(row => Object.fromEntries(headers.map((header, index) => [header, row[index] || ''])));
+      generalState.records = prepareGeneralRecords(remoteRaw);
+      renderGeneralDashboard();
+      $('#db-source').textContent = `Base sincronizada en tiempo real · ${generalState.records.length} registros · hoja de respuestas de Google`;
+    };
+    const script = document.createElement('script');
+    script.src = `${SYNC_ENDPOINT}?callback=stnReceiveRemoteDatabase&_=${Date.now()}`;
+    script.onload = () => script.remove();
+    script.onerror = () => script.remove();
+    document.body.append(script);
+  }
+  async function loadRepositoryDatabase() { try { const imported = localStorage.getItem('stn-imported-csv'); let csvText = imported; if (!csvText) { const response = await fetch('data/base-datos-2026.csv?v=20260927'); if (!response.ok) throw new Error('No se pudo cargar la base'); csvText = await response.text(); } generalState.records = prepareGeneralRecords(parseCsvGeneral(csvText)); renderGeneralDashboard(); $('#db-source').textContent = `${imported ? 'Base importada en este dispositivo' : 'Base institucional'} · ${generalState.records.length} registros · solo lectura`; loadRemotePrematriculas(); } catch (error) { $('#db-source').textContent = 'No fue posible cargar la base institucional. Verificá la conexión y el último commit.'; } }
+  if (SYNC_ENDPOINT && !SYNC_ENDPOINT.includes('PASTE_')) setInterval(loadRemotePrematriculas, 30000);
   $$('.specialty-tab').forEach(tab => tab.addEventListener('click', () => { generalState.filter = tab.dataset.specialty; renderGeneralDashboard(); }));
   $('#teacher-login')?.addEventListener('submit', () => setTimeout(loadRepositoryDatabase, 250));
   if (sessionStorage.getItem('stn-teacher-session')) loadRepositoryDatabase();
@@ -109,6 +165,27 @@ if (communityForm && communityFeed) {
 }, 0);
 setTimeout(() => { if (localStorage.getItem('stn-prematriculas')) window.dispatchEvent(new CustomEvent('stn-prematricula-saved')); }, 1800);
 function escapeHtml(text) { const el = document.createElement('div'); el.textContent = text; return el.innerHTML; }
+const publicPrematriculaForm = $('#public-prematricula-form');
+publicPrematriculaForm?.addEventListener('submit', event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const values = Object.fromEntries(new FormData(form).entries());
+  const file = form.querySelector('[name="titleFile"]')?.files?.[0];
+  const record = { ...values, titleFile: file?.name || '', status: 'Pre-matriculado', createdAt: new Date().toISOString() };
+  const records = JSON.parse(localStorage.getItem('stn-prematriculas') || '[]');
+  records.unshift(record);
+  localStorage.setItem('stn-prematriculas', JSON.stringify(records));
+  syncPrematriculaToRemote(record);
+  const students = getStudents();
+  students.unshift({ name: values.name, contact: values.phone || values.email, specialty: values.specialty, status: 'Pre-matriculado', identification: values.identification, email: values.email });
+  localStorage.setItem('stn-students', JSON.stringify(students));
+  updateDashboard();
+  const message = $('#public-prematricula-message');
+  message.textContent = `✓ Prematrícula registrada para ${values.name}.`;
+  message.classList.remove('error');
+  form.reset();
+  window.dispatchEvent(new CustomEvent('stn-prematricula-saved', { detail: record }));
+});
 const postText = $('#post-text');
 postText.addEventListener('input', () => $('.character-count').textContent = `${postText.value.length} / 400`);
 $('#post-form').addEventListener('submit', e => { e.preventDefault(); const text = postText.value.trim(); if (!text) return; const posts = loadPosts(); posts.unshift({ id: Date.now().toString(), name: 'Consulta de visitante', initials: 'CV', time: 'Ahora', text, likes: 0 }); savePosts(posts); postText.value = ''; $('.character-count').textContent = '0 / 400'; renderPosts(); });
@@ -178,7 +255,7 @@ function installPrematriculaPanel() {
   actions.after(panel);
   trigger.addEventListener('click', () => { panel.classList.toggle('hidden'); if (!panel.classList.contains('hidden')) panel.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
   $('#close-prematricula', panel).addEventListener('click', () => panel.classList.add('hidden'));
-  $('#native-prematricula-form', panel).addEventListener('submit', event => { event.preventDefault(); const form = event.currentTarget, values = Object.fromEntries(new FormData(form).entries()), file = form.querySelector('[name="titleFile"]')?.files?.[0]; const record = { ...values, titleFile: file?.name || '', status: 'Pre-matriculado', createdAt: new Date().toISOString() }; const records = JSON.parse(localStorage.getItem('stn-prematriculas') || '[]'); records.unshift(record); localStorage.setItem('stn-prematriculas', JSON.stringify(records)); const students = getStudents(); students.unshift({ name: values.name, contact: values.phone || values.email, specialty: values.specialty, status: 'Pre-matriculado', identification: values.identification, email: values.email }); localStorage.setItem('stn-students', JSON.stringify(students)); updateDashboard(); $('#native-prematricula-message', panel).textContent = `✓ Prematrícula guardada para ${values.name}.`; $('#native-prematricula-message', panel).classList.remove('error'); form.reset(); });
+  $('#native-prematricula-form', panel).addEventListener('submit', event => { event.preventDefault(); const form = event.currentTarget, values = Object.fromEntries(new FormData(form).entries()), file = form.querySelector('[name="titleFile"]')?.files?.[0]; const record = { ...values, titleFile: file?.name || '', status: 'Pre-matriculado', createdAt: new Date().toISOString() }; const records = JSON.parse(localStorage.getItem('stn-prematriculas') || '[]'); records.unshift(record); localStorage.setItem('stn-prematriculas', JSON.stringify(records)); syncPrematriculaToRemote(record); const students = getStudents(); students.unshift({ name: values.name, contact: values.phone || values.email, specialty: values.specialty, status: 'Pre-matriculado', identification: values.identification, email: values.email }); localStorage.setItem('stn-students', JSON.stringify(students)); updateDashboard(); $('#native-prematricula-message', panel).textContent = `✓ Prematrícula guardada para ${values.name}.`; $('#native-prematricula-message', panel).classList.remove('error'); form.reset(); });
   $('#native-prematricula-form', panel).addEventListener('submit', () => setTimeout(() => { const saved = JSON.parse(localStorage.getItem('stn-prematriculas') || '[]')[0]; if (saved) window.dispatchEvent(new CustomEvent('stn-prematricula-saved', { detail: saved })); }, 0));
   if (localStorage.getItem('stn-prematriculas')) window.dispatchEvent(new CustomEvent('stn-prematricula-saved'));
 }
