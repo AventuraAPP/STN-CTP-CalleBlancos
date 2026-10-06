@@ -33,7 +33,7 @@
   <header class="site-header" id="inicio">
     <a class="brand" href="#inicio" aria-label="STN inicio"><img src="assets/escudo-ctp.png" alt="Escudo del CTP Calle Blancos"><span><b>STN</b><small>Colegio Técnico Profesional de Calle Blancos · Sección Técnica Nocturna</small></span></a>
     <button class="menu-toggle" aria-label="Abrir menú" aria-expanded="false">☰</button>
-    <nav class="main-nav"><a href="#prematricula">Prematrícula</a><a href="#oferta">Oferta 2027</a><a href="#proceso">Proceso</a><a href="#comunidad">Comunidad</a><a href="#docentes" class="nav-lock">⌁ Docentes</a></nav>
+    <nav class="main-nav"><a href="#oferta">Oferta 2027</a><a href="#proceso">Proceso</a><a href="#comunidad">Comunidad</a><a href="#docentes" class="nav-lock">⌁ Docentes</a></nav>
   </header>
   <div class="news-ticker" aria-label="Mensaje institucional"><span>✦ MENSAJE STN</span><strong id="ticker-message">Estamos en proceso de prematrícula · Reservá tu espacio con el equipo docente</strong></div>
 
@@ -43,24 +43,13 @@
         <p class="eyebrow"><span></span> Admisión 2027 · Sección Técnica Nocturna</p>
         <h1>Eres el arquitecto <em>de tu futuro.</em></h1>
         <p class="hero-text">Estudiá, crecé y preparate para el mundo laboral con formación técnica de calidad en el Colegio Técnico Profesional de Calle Blancos. Conocé la Sección Técnica Nocturna, también identificada como STN.</p>
-        <div class="hero-actions"><a class="btn btn-primary" href="https://docs.google.com/forms/d/16jGEFDHXFnsD5QBk3-EY74pc4kKwYr_ZuRy6aVfWzs8/edit" target="_blank" rel="noopener">Prematrícula 2027 <span>→</span></a><a class="btn btn-whatsapp" href="https://wa.me/50661955775?text=Hola%20STN%20Calle%20Blancos%2C%20necesito%20informaci%C3%B3n%20sobre%20Admisi%C3%B3n%202027" target="_blank" rel="noopener">WhatsApp <span>↗</span></a></div>
+        <div class="hero-actions"><a class="btn btn-whatsapp" href="https://wa.me/50661955775?text=Hola%20STN%20Calle%20Blancos%2C%20necesito%20informaci%C3%B3n%20sobre%20Admisi%C3%B3n%202027" target="_blank" rel="noopener">WhatsApp <span>↗</span></a></div>
         <div class="hero-proof"><div class="proof-icon">◷</div><div><b>Horario nocturno</b><span>Atención y citas de lunes a viernes, 6:00–9:00 p. m.</span></div></div>
       </div>
       <div class="hero-art"><img class="hero-logo" src="assets/logo-stn.jpeg" alt="Logo STN CTP Calle Blancos"></div>
     </section>
 
     <section class="notice section-wrap"><span class="notice-icon">✦</span><p><b>Ruta de admisión activa.</b> Conocé las fechas, reservá tu espacio para examen y completá la prematrícula desde cualquier dispositivo.</p><a href="#proceso">Ver calendario →</a></section>
-
-    <section class="prematricula-section section-wrap" id="prematricula">
-      <div class="prematricula-intro">
-        <p class="eyebrow"><span></span> Prematrícula 2027</p>
-        <h2>Registrá tu interés en la oferta técnica nocturna.</h2>
-        <p>Completá el formulario oficial con tus datos, estudios, especialidad de interés y condiciones de apoyo. Tus respuestas se guardan directamente en la base vinculada de Google Forms.</p>
-        <div class="prematricula-actions"><a class="btn btn-primary" href="https://docs.google.com/forms/d/e/1FAIpQLScM8lPwHX9zN6-dYzdVoxOj4Sagr8KsRhTXUiwkPIrlzTInDg/viewform" target="_blank" rel="noopener">Abrir en otra pestaña <span>↗</span></a><button class="btn btn-ghost" id="copy-prematricula-link" type="button">Copiar enlace <span>⧉</span></button></div>
-        <p class="prematricula-note" id="prematricula-copy-status">Formulario oficial de la Sección Técnica Nocturna · respuestas conectadas a Google Sheets.</p>
-      </div>
-      <div class="prematricula-frame-wrap"><iframe title="Formulario oficial de prematrícula 2027" src="https://docs.google.com/forms/d/e/1FAIpQLScM8lPwHX9zN6-dYzdVoxOj4Sagr8KsRhTXUiwkPIrlzTInDg/viewform?embedded=true" loading="lazy" referrerpolicy="strict-origin-when-cross-origin">Tu navegador no puede mostrar el formulario integrado. Usá el botón «Abrir en otra pestaña».</iframe></div>
-    </section>
 
     <section class="marketing-video section-wrap"><div class="marketing-video-copy"><p class="eyebrow"><span></span> Conocé la STN</p><h2>Una decisión que abre oportunidades.</h2><p>Descubrí las especialidades técnicas y el ambiente de aprendizaje de la Sección Técnica Nocturna.</p></div><div class="video-card"><video controls preload="metadata" poster="assets/proceso-admision-2027.png"><source src="assets/especialidades-tecnicas-2027.mp4" type="video/mp4">Tu navegador no admite video HTML5.</video></div></section>
     <section class="section-wrap split-feature" id="proceso">
@@ -117,8 +106,5 @@
 
   <dialog id="curriculum-dialog"><button class="dialog-close" aria-label="Cerrar">×</button><img id="curriculum-image" src="" alt="Malla curricular"><p id="curriculum-caption">Malla curricular adjunta.</p></dialog>
 <script src="app.js?v=20261006-appointments"></script>
-<script>
-  (() => { const link = 'https://docs.google.com/forms/d/e/1FAIpQLScM8lPwHX9zN6-dYzdVoxOj4Sagr8KsRhTXUiwkPIrlzTInDg/viewform'; const button = document.querySelector('#copy-prematricula-link'); const status = document.querySelector('#prematricula-copy-status'); button?.addEventListener('click', async () => { try { await navigator.clipboard.writeText(link); status.textContent = '✓ Enlace copiado. Ya podés compartirlo con las familias.'; } catch (_) { status.textContent = `Enlace para compartir: ${link}`; } }); })();
-</script>
 </body>
 </html>
