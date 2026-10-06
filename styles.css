@@ -26,6 +26,7 @@
 /* Acceso separado por departamento técnico */
 .teacher-login-note{display:block;color:#a6bddb;font-size:.72rem;line-height:1.45;margin:8px 0 16px;text-align:left}
 .teacher-access .teacher-department-label{display:grid;gap:7px;text-align:left;color:#b7c8e2;margin:20px 0 9px}
+.teacher-entry-gate{text-align:center;max-width:430px;margin:auto;padding:12px 4px}.teacher-entry-gate .lock-mark{margin:0 auto 12px}.teacher-entry-gate h3{color:white;font-size:1.35rem;margin:0}.teacher-entry-gate p{margin:9px 0 16px}.teacher-entry-gate .btn{width:100%}.teacher-entry-gate small{display:block;color:#91abcd;font-size:.68rem;margin-top:12px}
 .teacher-access select{background:#0b2955;border-color:#315685;color:white}
 .teacher-access select:disabled{opacity:.75;cursor:not-allowed}
 .specialty-tab.hidden{display:none}
