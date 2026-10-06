@@ -66,10 +66,8 @@ if (endTeacherArea && teacherAgendaSection) { endTeacherArea.parentNode.insertBe
 const institutional = $('.teacher-section');
 const teacherCopy = $('.teacher-copy');
 const teacherAgendaGeneral = $('.teacher-agenda');
-if (institutional && teacherCopy) {
-  const generalButton = document.createElement('button'); generalButton.className = 'btn btn-ghost general-data-button'; generalButton.id = 'show-general-data'; generalButton.type = 'button'; generalButton.textContent = 'Datos generales'; teacherCopy.append(generalButton);
-  generalButton.addEventListener('click', () => { institutional.scrollIntoView({ behavior: 'smooth', block: 'start' }); $('#teacher-password')?.focus(); });
-}
+// El dashboard institucional se mantiene disponible dentro del portal docente;
+// se omite el botón público «Datos generales» para mantener el acceso discreto.
 $('#doc-upload')?.closest('.upload-label')?.remove();
 const generalDashboard = $('#database-summary');
 if (generalDashboard) {
