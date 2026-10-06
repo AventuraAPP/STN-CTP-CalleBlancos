@@ -42,3 +42,17 @@
 .department-password-row .text-button{padding:10px 4px;white-space:nowrap}
 .admin-password-panel .form-message{text-align:left;margin-top:12px}
 @media(max-width:540px){.admin-password-head{flex-direction:column;gap:8px}.department-password-row{grid-template-columns:1fr}.department-password-row .text-button{justify-self:start}}
+
+/* Portal docente discreto para visitantes */
+.teacher-section.teacher-locked{padding:38px 0 22px;display:grid;grid-template-columns:1fr auto;gap:18px;align-items:center}
+.teacher-section.teacher-locked .teacher-copy{max-width:520px}
+.teacher-section.teacher-locked .teacher-copy h2{font-size:1.45rem;letter-spacing:-.03em}
+.teacher-section.teacher-locked .teacher-copy>p:not(.eyebrow),.teacher-section.teacher-locked .security-note{display:none}
+.teacher-section.teacher-locked .teacher-copy .eyebrow{font-size:.62rem;margin-bottom:7px;color:#7386a4}
+.teacher-section.teacher-locked .teacher-access{background:transparent;box-shadow:none;padding:0;border-radius:0}
+.teacher-section.teacher-locked .teacher-entry-gate{display:flex;align-items:center;justify-content:flex-end;gap:9px;max-width:none;padding:0;text-align:right}
+.teacher-section.teacher-locked .teacher-entry-gate .lock-mark{width:25px;height:25px;margin:0;border-radius:8px;font-size:.9rem}
+.teacher-section.teacher-locked .teacher-entry-gate h3{color:#3d5578;font:700 .72rem "DM Sans",sans-serif;margin:0;white-space:nowrap}
+.teacher-section.teacher-locked .teacher-entry-gate p,.teacher-section.teacher-locked .teacher-entry-gate small{display:none}
+.teacher-section.teacher-locked .teacher-entry-gate .btn{width:auto;padding:7px 10px;border-radius:8px;font-size:.68rem;box-shadow:none}
+@media(max-width:700px){.teacher-section.teacher-locked{grid-template-columns:1fr;gap:11px;padding-top:30px}.teacher-section.teacher-locked .teacher-entry-gate{justify-content:flex-start;text-align:left}}
