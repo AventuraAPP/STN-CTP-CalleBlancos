@@ -63,6 +63,11 @@
 .metric-card:hover{background:rgba(45,212,122,.11);border-color:rgba(104,239,164,.55);color:#e1ffed}
 .metric-card:hover b{color:#a9f7c4}.metric-card:hover span{color:#d5fbe2}
 
+/* Formulario oficial integrado: conserva preguntas, textos y registro en Google Forms */
+.prematricula-section{display:grid;grid-template-columns:.72fr 1.28fr;gap:28px;align-items:start;margin:0 auto 112px;padding:30px;border:1px solid #cfe0fa;border-radius:24px;background:linear-gradient(135deg,#eef6ff,#fff);box-shadow:0 22px 55px rgba(7,27,59,.11)}
+.prematricula-intro{padding:18px 8px 10px}.prematricula-intro h2{font-size:clamp(2rem,3.5vw,3.15rem);letter-spacing:-.045em}.prematricula-intro>p:not(.eyebrow):not(.prematricula-note){color:#5b7092;line-height:1.65;margin:18px 0 22px}.prematricula-actions{display:flex;flex-wrap:wrap;gap:10px}.prematricula-actions .btn{font-size:.78rem;padding:11px 14px}.prematricula-note{color:#7085a5;font-size:.72rem;line-height:1.5;margin:18px 0 0}.prematricula-frame-wrap{height:720px;overflow:hidden;border:1px solid #cadcf7;border-radius:18px;background:white;box-shadow:0 15px 35px rgba(7,27,59,.12)}.prematricula-frame-wrap iframe{display:block;width:100%;height:100%;border:0;background:white}
+@media(max-width:900px){.prematricula-section{grid-template-columns:1fr;padding:20px}.prematricula-intro{padding:6px 3px 0}.prematricula-frame-wrap{height:740px}}
+
 /* Buscador de estudiantes visible para cualquier docente autenticado */
 .student-search-bar{display:flex;align-items:end;gap:10px;margin:14px 0 0;padding:11px 13px;border:1px solid #31517b;border-radius:11px;background:#0b315f}
 .student-search-bar label{display:flex;align-items:center;gap:10px;width:100%;color:#c7d8ed;font-size:.72rem;font-weight:800}
