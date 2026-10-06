@@ -153,7 +153,7 @@ function applyTeacherAccess() {
   const admin = teacherAccess.role === 'admin', specialty = allowedTeacherSpecialty();
   const roleLabel = $('.dashboard-head b', teacherDashboard);
   if (roleLabel) roleLabel.textContent = admin ? 'Portal docente · Administrador' : `Portal docente · ${specialty}`;
-  $$('.specialty-tab', teacherDashboard).forEach(tab => { const visible = admin || tab.dataset.specialty === specialty || tab.dataset.specialty === 'Todas'; tab.classList.toggle('hidden', !visible); tab.classList.toggle('active', admin ? tab.dataset.specialty === 'Todas' : tab.dataset.specialty === specialty); });
+  $$('.specialty-tab', teacherDashboard).forEach(tab => { const visible = admin || tab.dataset.specialty === specialty; tab.classList.toggle('hidden', !visible); tab.classList.toggle('active', admin ? tab.dataset.specialty === 'Todas' : tab.dataset.specialty === specialty); });
   const specialtySelect = $('#teacher-specialty');
   if (specialtySelect) { if (specialty) specialtySelect.value = specialty; specialtySelect.disabled = Boolean(specialty); }
   adminPasswordPanel?.classList.toggle('hidden', !admin);
