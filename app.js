@@ -137,13 +137,21 @@ const passwordLabel = $('#teacher-password')?.closest('label');
 if (passwordLabel && !$('#teacher-department')) passwordLabel.before(departmentLabel);
 if (teacherLogin && !$('.teacher-login-note', teacherLogin)) { const note = document.createElement('small'); note.className = 'teacher-login-note'; note.textContent = 'Cada departamento utiliza su propia contraseña. El administrador tiene acceso total.'; passwordLabel?.after(note); }
 
-let adminPasswordPanel = $('#admin-password-panel');
+let adminPasswordPanel = $('#admin-password-panel'), adminPasswordToggle = $('#admin-password-toggle');
 if (teacherDashboard && !adminPasswordPanel) {
+  adminPasswordToggle = document.createElement('button');
+  adminPasswordToggle.id = 'admin-password-toggle';
+  adminPasswordToggle.className = 'admin-password-toggle hidden';
+  adminPasswordToggle.type = 'button';
+  adminPasswordToggle.setAttribute('aria-expanded', 'false');
+  adminPasswordToggle.textContent = '▸ Contraseñas por departamento';
+  $('#specialty-tabs', teacherDashboard)?.after(adminPasswordToggle);
   adminPasswordPanel = document.createElement('section');
   adminPasswordPanel.id = 'admin-password-panel';
   adminPasswordPanel.className = 'admin-password-panel hidden';
   adminPasswordPanel.innerHTML = '<div class="admin-password-head"><div><span class="eyebrow"><span></span> Administración</span><h3>Contraseñas por departamento</h3><p>Solo el administrador puede visualizar y cambiar estas claves.</p></div><span class="status-pill">Acceso total</span></div><div id="department-password-list" class="department-password-list"></div><p id="password-admin-message" class="form-message" role="status"></p>';
   $('#specialty-tabs', teacherDashboard)?.after(adminPasswordPanel);
+  adminPasswordToggle.addEventListener('click', () => { const open = adminPasswordPanel.classList.toggle('hidden'); adminPasswordToggle.setAttribute('aria-expanded', String(!open)); adminPasswordToggle.textContent = `${open ? '▸' : '▾'} Contraseñas por departamento`; });
 }
 function renderAdminPasswords() {
   if (!adminPasswordPanel) return;
@@ -172,7 +180,8 @@ function applyTeacherAccess() {
   if (specialtySelect) { if (specialty) specialtySelect.value = specialty; specialtySelect.disabled = Boolean(specialty); }
   const csvImportControl = $('#csv-import-control');
   csvImportControl?.classList.toggle('hidden', !admin);
-  adminPasswordPanel?.classList.toggle('hidden', !admin);
+  adminPasswordToggle?.classList.toggle('hidden', !admin);
+  if (!admin) { adminPasswordPanel?.classList.add('hidden'); adminPasswordToggle?.setAttribute('aria-expanded', 'false'); if (adminPasswordToggle) adminPasswordToggle.textContent = '▸ Contraseñas por departamento'; }
   if (admin) renderAdminPasswords();
   renderAppointments(specialty || $('.specialty-tab.active')?.dataset.specialty || 'Todas');
 }

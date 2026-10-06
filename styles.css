@@ -41,6 +41,7 @@
 .department-password-row input{width:min(300px,100%);background:#0b315f;border-color:#315b8c;color:white;font-size:.8rem}
 .department-password-row .text-button{padding:10px 4px;white-space:nowrap}
 .admin-password-panel .form-message{text-align:left;margin-top:12px}
+.admin-password-toggle{display:block;width:100%;margin:0 0 10px;padding:10px 12px;border:1px solid #31517b;border-radius:10px;background:#0b315f;color:#bfe3fa;text-align:left;font:800 .72rem "DM Sans",sans-serif;cursor:pointer}.admin-password-toggle:hover{background:#164676;color:white}.admin-password-toggle[aria-expanded="true"]{border-color:#4f96bd;color:#e7fbff}
 @media(max-width:540px){.admin-password-head{flex-direction:column;gap:8px}.department-password-row{grid-template-columns:1fr}.department-password-row .text-button{justify-self:start}}
 
 /* Portal docente discreto para visitantes */
