@@ -48,17 +48,28 @@ function nativeRecordToRemotePayload(record) {
   };
 }
 
-async function syncPrematriculaToRemote(record) {
-  if (!SYNC_ENDPOINT || SYNC_ENDPOINT.includes('PASTE_')) return;
-  try {
-    await fetch(SYNC_ENDPOINT, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(nativeRecordToRemotePayload(record))
-    });
-  } catch (_) { /* El guardado local continúa aunque el servicio no responda. */ }
+const PENDING_SYNC_KEY = 'stn-pending-prematriculas';
+function readPendingSync() { try { return JSON.parse(localStorage.getItem(PENDING_SYNC_KEY) || '[]'); } catch (_) { return []; } }
+function writePendingSync(records) { localStorage.setItem(PENDING_SYNC_KEY, JSON.stringify(records)); }
+function queuePendingSync(record) {
+  const pending = readPendingSync();
+  if (!pending.some(item => item.createdAt === record.createdAt)) { pending.push(record); writePendingSync(pending); }
 }
+async function flushPendingSync() {
+  if (!SYNC_ENDPOINT || SYNC_ENDPOINT.includes('PASTE_') || !navigator.onLine) return;
+  const pending = readPendingSync();
+  if (!pending.length) return;
+  const remaining = [];
+  for (const record of pending) {
+    try {
+      await fetch(SYNC_ENDPOINT, { method: 'POST', mode: 'no-cors', cache: 'no-store', keepalive: true, headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(nativeRecordToRemotePayload(record)) });
+    } catch (_) { remaining.push(record); }
+  }
+  writePendingSync(remaining);
+}
+async function syncPrematriculaToRemote(record) { queuePendingSync(record); await flushPendingSync(); }
+window.addEventListener('online', flushPendingSync);
+setInterval(flushPendingSync, 30000);
 
 async function deletePrematriculaFromRemote(record) {
   if (!SYNC_ENDPOINT || SYNC_ENDPOINT.includes('PASTE_')) return;
