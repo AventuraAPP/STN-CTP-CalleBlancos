@@ -4,9 +4,9 @@ const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector
 // Acceso por departamento para el Portal docente. En GitHub Pages este control
 // protege la interfaz, pero no sustituye un backend con autenticación real.
 const TEACHER_ADMIN_PASSWORD = 'RoyAdmSTN';
-// Endpoint de Google Apps Script para sincronización compartida.
-// Se completa después de publicar la implementación como aplicación web.
-const SYNC_ENDPOINT = 'PASTE_DEPLOYED_URL_HERE';
+// Endpoint público de Google Apps Script para sincronizar prematrículas,
+// consultar el panel docente y enviar confirmaciones por correo.
+const SYNC_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyyeomXgKMvXwOJsZq3bjx56tJ0hRpmZcKJ8V9OAUgAOZdDUOJvpVzyd8WLNEcgJCjE/exec';
 const DEPARTMENT_PASSWORDS = Object.freeze({
   'Ciberseguridad': 'STNCiber27!',
   'Contabilidad': 'STNConta27!',

@@ -1,4 +1,4 @@
-const SYNC_ENDPOINT = 'PASTE_DEPLOYED_URL_HERE';
+const SYNC_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyyeomXgKMvXwOJsZq3bjx56tJ0hRpmZcKJ8V9OAUgAOZdDUOJvpVzyd8WLNEcgJCjE/exec';
 
 function nativeRecordToRemotePayload(record) {
   return {
