@@ -64,7 +64,12 @@ async function flushPendingSync() {
   for (const record of pending) {
     try {
       await fetch(SYNC_ENDPOINT, { method: 'POST', mode: 'no-cors', cache: 'no-store', keepalive: true, headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(nativeRecordToRemotePayload(record)) });
-    } catch (_) { remaining.push(record); }
+    } catch (_) {
+      try {
+        const beaconSent = navigator.sendBeacon(SYNC_ENDPOINT, new Blob([JSON.stringify(nativeRecordToRemotePayload(record))], { type: 'text/plain;charset=utf-8' }));
+        if (!beaconSent) remaining.push(record);
+      } catch (_) { remaining.push(record); }
+    }
   }
   writePendingSync(remaining);
 }
@@ -196,6 +201,11 @@ if (generalDashboard) {
     script.onerror = () => script.remove();
     document.body.append(script);
   }
+  window.addEventListener('message', event => {
+    if (event.origin !== window.location.origin || event.data?.type !== 'stn-prematricula-saved') return;
+    loadRemotePrematriculas();
+    loadTeacherDatabaseForSession?.();
+  });
   async function loadRepositoryDatabase() { try { const imported = localStorage.getItem('stn-imported-csv'); let csvText = imported; if (!csvText) { const response = await fetch('data/base-datos-2026.csv?v=20261006-database'); if (!response.ok) throw new Error('No se pudo cargar la base'); csvText = await response.text(); } generalState.records = prepareGeneralRecords(parseCsvGeneral(csvText)); renderGeneralDashboard(); $('#db-source').textContent = `${imported ? 'Base importada en este dispositivo' : 'Base institucional'} · ${generalState.records.length} registros · solo lectura`; loadRemotePrematriculas(); } catch (error) { $('#db-source').textContent = 'No fue posible cargar la base institucional. Verificá la conexión y el último commit.'; } }
   if (SYNC_ENDPOINT && !SYNC_ENDPOINT.includes('PASTE_')) setInterval(loadRemotePrematriculas, 30000);
   $$('.specialty-tab').forEach(tab => tab.addEventListener('click', () => { generalState.filter = tab.dataset.specialty; renderGeneralDashboard(); }));

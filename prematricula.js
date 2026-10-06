@@ -39,7 +39,12 @@ async function flushPendingSync() {
   for (const record of pending) {
     try {
       await fetch(SYNC_ENDPOINT, { method: 'POST', mode: 'no-cors', cache: 'no-store', keepalive: true, headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(nativeRecordToRemotePayload(record)) });
-    } catch (_) { remaining.push(record); }
+    } catch (_) {
+      try {
+        const beaconSent = navigator.sendBeacon(SYNC_ENDPOINT, new Blob([JSON.stringify(nativeRecordToRemotePayload(record))], { type: 'text/plain;charset=utf-8' }));
+        if (!beaconSent) remaining.push(record);
+      } catch (_) { remaining.push(record); }
+    }
   }
   writePendingSync(remaining);
 }
@@ -67,5 +72,5 @@ form?.addEventListener('submit', event => {
   localStorage.setItem('stn-students', JSON.stringify(students));
   message.classList.remove('error');
   form.reset();
-  window.opener?.postMessage({ type: 'stn-prematricula-saved' }, window.location.origin);
+  window.opener?.postMessage({ type: 'stn-prematricula-saved', createdAt: record.createdAt }, window.location.origin);
 });
