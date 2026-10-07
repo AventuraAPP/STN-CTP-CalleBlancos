@@ -84,10 +84,13 @@ async function deletePrematriculaFromRemote(record) {
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'delete', identification: record.id || '', timestamp: record.raw?.['Marca temporal'] || '' })
+      body: JSON.stringify({ action: 'delete', identification: record.id || '', name: record.name || '' })
     });
   } catch (_) { /* La eliminación local no se revierte por una falla de red. */ }
 }
+function deletedRecordKey(record) { return `${String(record.id || '').trim().toLowerCase()}|${String(record.name || '').trim().toLowerCase()}`; }
+function getDeletedRecordKeys() { try { return new Set(JSON.parse(localStorage.getItem('stn-deleted-records') || '[]')); } catch (_) { return new Set(); } }
+function rememberDeletedRecord(record) { const keys = [...getDeletedRecordKeys(), deletedRecordKey(record)]; localStorage.setItem('stn-deleted-records', JSON.stringify([...new Set(keys)])); }
 
 const menu = $('.menu-toggle');
 const nav = $('.main-nav');
@@ -176,6 +179,7 @@ if (generalDashboard) {
         const students = getStudents();
         localStorage.setItem('stn-students', JSON.stringify(students.filter(item => item.identification !== record.id || item.name !== record.name)));
         generalState.records = generalState.records.filter(item => item !== record);
+        rememberDeletedRecord(record);
         deletePrematriculaFromRemote(record);
         renderGeneralDashboard();
         $('#db-source').textContent = `Registro eliminado por administración · ${generalState.records.length} registros restantes`;
@@ -191,7 +195,8 @@ if (generalDashboard) {
       if (!payload?.ok || !Array.isArray(payload.rows)) return;
       const headers = payload.headers || [];
       const remoteRaw = payload.rows.map(row => Object.fromEntries(headers.map((header, index) => [header, row[index] || ''])));
-      generalState.records = prepareGeneralRecords(remoteRaw);
+      const deletedKeys = getDeletedRecordKeys();
+      generalState.records = prepareGeneralRecords(remoteRaw).filter(record => !deletedKeys.has(deletedRecordKey(record)));
       renderGeneralDashboard();
       $('#db-source').textContent = `Base sincronizada en tiempo real · ${generalState.records.length} registros · hoja de respuestas de Google`;
     };
@@ -374,7 +379,8 @@ if (teacherAgenda) {
       if (!payload?.ok || !Array.isArray(payload.rows)) return;
       const headers = payload.headers || [];
       const raw = payload.rows.map(row => Object.fromEntries(headers.map((header, index) => [header, row[index] || ''])));
-      csvState.records.splice(0, csvState.records.length, ...prepareRecords(raw));
+      const deletedKeys = getDeletedRecordKeys();
+      csvState.records.splice(0, csvState.records.length, ...prepareRecords(raw).filter(record => !deletedKeys.has(deletedRecordKey(record))));
       renderDatabase();
       updateDatabaseCounters();
       $('#db-source').textContent = `Base sincronizada en tiempo real · ${csvState.records.length} registros · búsqueda en todos los campos`;
@@ -426,6 +432,7 @@ if (teacherAgenda) {
       csvState.records = csvState.records.filter(item => item !== record);
       const localRecords = JSON.parse(localStorage.getItem('stn-prematriculas') || '[]');
       localStorage.setItem('stn-prematriculas', JSON.stringify(localRecords.filter(item => item.identification !== record.id || item.name !== record.name)));
+      rememberDeletedRecord(record);
       deletePrematriculaFromRemote(record);
       renderDatabase();
       $('#db-source').textContent = `Registro eliminado por administración · ${csvState.records.length} registros restantes`;
