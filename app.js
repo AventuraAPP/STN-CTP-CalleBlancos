@@ -412,11 +412,12 @@ if (teacherAgenda) {
   let teacherDatabaseTimer;
   function startTeacherDatabaseRefresh() { if (!teacherDatabaseTimer) teacherDatabaseTimer = setInterval(loadRemoteTeacherDatabase, 30000); }
   function updateDatabaseCounters() { const pre = csvState.records.filter(r => !/matriculad[oa]/i.test(r.status) || /pre.?matriculad/i.test(r.status)).length, mat = csvState.records.filter(r => /matriculad[oa]/i.test(r.status) && !/pre.?matriculad/i.test(r.status)).length; const preCount = $('#pre-count'); const matCount = $('#mat-count'); if (preCount) preCount.textContent = pre; if (matCount) matCount.textContent = mat; }
+  function normalizeSearchText(value) { return String(value ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\s-]+/g, ' ').trim(); }
   function renderDatabase() {
     const activeFilter = allowedTeacherSpecialty() || csvState.filter;
-    const search = csvState.search.trim().toLowerCase();
+    const search = normalizeSearchText(csvState.search);
     const scopedRows = csvState.records.filter(r => activeFilter === 'Todas' || r.specialty === activeFilter);
-    const rows = scopedRows.filter(r => !search || [r.name, r.id, r.email, r.phone, r.specialty, r.status, ...Object.values(r.raw)].join(' ').toLowerCase().includes(search));
+    const rows = scopedRows.filter(r => !search || normalizeSearchText([r.name, r.id, r.email, r.phone, r.specialty, r.status, ...Object.values(r.raw)].join(' ')).includes(search));
     const duplicateCount = rows.filter(r => r.duplicate).length;
     $('#db-total').textContent = csvState.records.length;
     $('#db-visible').textContent = rows.length;
