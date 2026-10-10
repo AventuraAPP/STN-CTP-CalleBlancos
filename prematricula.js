@@ -1,7 +1,10 @@
 const SYNC_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyyeomXgKMvXwOJsZq3bjx56tJ0hRpmZcKJ8V9OAUgAOZdDUOJvpVzyd8WLNEcgJCjE/exec';
 
 function nativeRecordToRemotePayload(record) {
+  const syncId = record.syncId || record['ID de sincronización'] || record.createdAt || `${record.identification || ''}|${record.name || ''}|${record.specialty || ''}`;
   return {
+    syncId,
+    'ID de sincronización': syncId,
     'Marca temporal': record.createdAt || new Date().toISOString(),
     'Nombre completo y apellidos - Como aparece en la cédula': record.name || '',
     'Cédula o documento de identidad = Formato 0-0000-0000': record.identification || '',
@@ -29,7 +32,7 @@ function readPendingSync() { try { return JSON.parse(localStorage.getItem(PENDIN
 function writePendingSync(records) { localStorage.setItem(PENDING_SYNC_KEY, JSON.stringify(records)); }
 function queuePendingSync(record) {
   const pending = readPendingSync();
-  if (!pending.some(item => item.createdAt === record.createdAt)) { pending.push(record); writePendingSync(pending); }
+  if (!pending.some(item => (item.syncId || item.createdAt) === (record.syncId || record.createdAt))) { pending.push(record); writePendingSync(pending); }
 }
 async function flushPendingSync() {
   if (!SYNC_ENDPOINT || SYNC_ENDPOINT.includes('PASTE_') || !navigator.onLine) return;
@@ -38,7 +41,7 @@ async function flushPendingSync() {
   const remaining = [];
   for (const record of pending) {
     try {
-      await fetch(SYNC_ENDPOINT, { method: 'POST', mode: 'no-cors', cache: 'no-store', keepalive: true, headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(nativeRecordToRemotePayload(record)) });
+      await fetch(SYNC_ENDPOINT, { method: 'POST', mode: 'no-cors', cache: 'no-store', keepalive: true, headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'create', ...nativeRecordToRemotePayload(record) }) });
     } catch (_) {
       try {
         const beaconSent = navigator.sendBeacon(SYNC_ENDPOINT, new Blob([JSON.stringify(nativeRecordToRemotePayload(record))], { type: 'text/plain;charset=utf-8' }));
@@ -58,7 +61,7 @@ form?.addEventListener('submit', event => {
   event.preventDefault();
   const values = Object.fromEntries(new FormData(form).entries());
   const file = form.querySelector('[name="titleFile"]')?.files?.[0];
-  const record = { ...values, titleFile: file?.name || '', status: 'Pre-matriculado', createdAt: new Date().toISOString() };
+  const record = { ...values, titleFile: file?.name || '', status: 'Pre-matriculado', createdAt: new Date().toISOString(), syncId: (crypto.randomUUID?.() || `stn-${Date.now()}-${Math.random().toString(36).slice(2)}`) };
   const records = JSON.parse(localStorage.getItem('stn-prematriculas') || '[]');
   records.unshift(record);
   localStorage.setItem('stn-prematriculas', JSON.stringify(records));
