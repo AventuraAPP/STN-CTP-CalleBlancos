@@ -6,7 +6,7 @@ const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector
 const TEACHER_ADMIN_PASSWORD = 'RoyAdmSTN';
 // Endpoint público de Google Apps Script para sincronizar prematrículas,
 // consultar el panel docente y enviar confirmaciones por correo.
-const SYNC_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyyeomXgKMvXwOJsZq3bjx56tJ0hRpmZcKJ8V9OAUgAOZdDUOJvpVzyd8WLNEcgJCjE/exec';
+const SYNC_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwK0uqL-wd-kCfQfACGQ9cQvtTEnE-ce99jIp2B_7Ezp_qDwb_0QN4k346L8Xmi_n6J/exec';
 const DEPARTMENT_PASSWORDS = Object.freeze({
   'Ciberseguridad': 'STNCiber27!',
   'Contabilidad': 'STNConta27!',
