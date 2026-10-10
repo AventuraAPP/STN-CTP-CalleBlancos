@@ -1,4 +1,4 @@
-const SYNC_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyyeomXgKMvXwOJsZq3bjx56tJ0hRpmZcKJ8V9OAUgAOZdDUOJvpVzyd8WLNEcgJCjE/exec';
+const SYNC_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwK0uqL-wd-kCfQfACGQ9cQvtTEnE-ce99jIp2B_7Ezp_qDwb_0QN4k346L8Xmi_n6J/exec';
 
 function nativeRecordToRemotePayload(record) {
   const syncId = record.syncId || record['ID de sincronización'] || record.createdAt || `${record.identification || ''}|${record.name || ''}|${record.specialty || ''}`;
