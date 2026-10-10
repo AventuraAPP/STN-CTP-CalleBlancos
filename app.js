@@ -215,7 +215,7 @@ if (generalDashboard) {
     loadTeacherDatabaseForSession?.();
   });
   async function loadRepositoryDatabase() { try { const imported = localStorage.getItem('stn-imported-csv'); let csvText = imported; if (!csvText) { const response = await fetch('data/base-datos-2026.csv?v=20261006-database-128'); if (!response.ok) throw new Error('No se pudo cargar la base'); csvText = await response.text(); } generalState.records = prepareGeneralRecords(parseCsvGeneral(csvText)); renderGeneralDashboard(); $('#db-source').textContent = `${imported ? 'Base importada en este dispositivo' : 'Base institucional'} · ${generalState.records.length} registros · solo lectura`; loadRemotePrematriculas(); } catch (error) { $('#db-source').textContent = 'No fue posible cargar la base institucional. Verificá la conexión y el último commit.'; } }
-  if (SYNC_ENDPOINT && !SYNC_ENDPOINT.includes('PASTE_')) setInterval(loadRemotePrematriculas, 30000);
+  if (SYNC_ENDPOINT && !SYNC_ENDPOINT.includes('PASTE_')) setInterval(loadRemotePrematriculas, 10000);
   $$('.specialty-tab').forEach(tab => tab.addEventListener('click', () => { generalState.filter = tab.dataset.specialty; renderGeneralDashboard(); }));
   $('#teacher-login')?.addEventListener('submit', () => setTimeout(loadRepositoryDatabase, 250));
   if (sessionStorage.getItem('stn-teacher-session')) loadRepositoryDatabase();
@@ -439,7 +439,7 @@ if (teacherAgenda) {
   loadTeacherDatabaseForSession = loadTeacherDatabase;
   if (teacherAccess.role) loadTeacherDatabaseForSession();
   let teacherDatabaseTimer;
-  function startTeacherDatabaseRefresh() { if (!teacherDatabaseTimer) teacherDatabaseTimer = setInterval(loadRemoteTeacherDatabase, 30000); }
+  function startTeacherDatabaseRefresh() { if (!teacherDatabaseTimer) teacherDatabaseTimer = setInterval(loadRemoteTeacherDatabase, 10000); }
   function updateDatabaseCounters() { const pre = csvState.records.filter(r => !/matriculad[oa]/i.test(r.status) || /pre.?matriculad/i.test(r.status)).length, mat = csvState.records.filter(r => /matriculad[oa]/i.test(r.status) && !/pre.?matriculad/i.test(r.status)).length; const preCount = $('#pre-count'); const matCount = $('#mat-count'); if (preCount) preCount.textContent = pre; if (matCount) matCount.textContent = mat; }
   function normalizeSearchText(value) { return String(value ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\s-]+/g, ' ').trim(); }
   function renderDatabase() {
