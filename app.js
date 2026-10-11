@@ -29,6 +29,8 @@ function nativeRecordToRemotePayload(record) {
   const syncId = record.syncId || record['ID de sincronización'] || record.createdAt || `${record.identification || ''}|${record.name || ''}|${record.specialty || ''}`;
   return {
     syncId,
+    name: record.name || '',
+    fullName: record.name || '',
     'ID de sincronización': syncId,
     'Marca temporal': record.createdAt || new Date().toISOString(),
     'Nombre completo y apellidos - Como aparece en la cédula': record.name || '',
@@ -37,6 +39,9 @@ function nativeRecordToRemotePayload(record) {
     'Teléfono Principal = Formato 0000-0000': record.phone || '',
     'Estudios últimos alcanzados': record.education || '',
     'Adjunta el título de noveno año o bachillerato de secundaria obtenido': record.titleFile || '—',
+    titleFileContent: record.titleFileContent || '',
+    titleFileMime: record.titleFileMime || '',
+    titleFileName: record.titleFile || '',
     'Especialidad que desearía matricular para el 2027': record.specialty || '',
     '¿Porque medio se entero de la prematrícula?': record.source || '',
     'Correo electrónico personal': record.email || '',
@@ -50,6 +55,22 @@ function nativeRecordToRemotePayload(record) {
     'Posee discapacidad': record.disability || '',
     'Estado': record.status || 'Pre-matriculado'
   };
+}
+
+function readAttachmentForSync(file) {
+  if (!file) return Promise.resolve(null);
+  const maximumBytes = 8 * 1024 * 1024;
+  if (file.size > maximumBytes) return Promise.reject(new Error('El archivo supera el límite de 8 MB.'));
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('No fue posible leer el archivo adjunto.'));
+    reader.onload = () => resolve({
+      name: file.name,
+      mime: file.type || 'application/octet-stream',
+      base64: String(reader.result || '').split(',').pop() || ''
+    });
+    reader.readAsDataURL(file);
+  });
 }
 
 const PENDING_SYNC_KEY = 'stn-pending-prematriculas';
@@ -374,7 +395,7 @@ function installPrematriculaPanel() {
   actions.after(panel);
   trigger.addEventListener('click', () => { panel.classList.toggle('hidden'); if (!panel.classList.contains('hidden')) panel.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
   $('#close-prematricula', panel).addEventListener('click', () => panel.classList.add('hidden'));
-  $('#native-prematricula-form', panel).addEventListener('submit', event => { event.preventDefault(); const form = event.currentTarget, values = Object.fromEntries(new FormData(form).entries()), file = form.querySelector('[name="titleFile"]')?.files?.[0]; const record = { ...values, titleFile: file?.name || '', status: values.status || 'Pre-matriculado', createdAt: new Date().toISOString(), syncId: (crypto.randomUUID?.() || `stn-${Date.now()}-${Math.random().toString(36).slice(2)}`) }; const records = JSON.parse(localStorage.getItem('stn-prematriculas') || '[]'); records.unshift(record); localStorage.setItem('stn-prematriculas', JSON.stringify(records)); const students = getStudents(); students.unshift({ name: values.name, contact: values.phone || values.email, specialty: values.specialty, status: record.status, identification: values.identification, email: values.email }); localStorage.setItem('stn-students', JSON.stringify(students)); updateDashboard(); const statusMessage = $('#native-prematricula-message', panel); statusMessage.textContent = `✓ Todos los datos de ${values.name} fueron guardados en el sistema. Sincronizando con la base institucional…`; statusMessage.classList.remove('error'); syncPrematriculaToRemote(record).then(() => { const pending = readPendingSync().some(item => item.createdAt === record.createdAt); statusMessage.textContent = pending ? `✓ Datos guardados para ${values.name}. Quedaron pendientes de sincronización y se reintentará automáticamente.` : `✓ Confirmado: todos los datos de ${values.name} fueron guardados y enviados a la base institucional.`; setTimeout(() => loadTeacherDatabaseForSession?.(), 2500); }); form.reset(); });
+  $('#native-prematricula-form', panel).addEventListener('submit', async event => { event.preventDefault(); const form = event.currentTarget, values = Object.fromEntries(new FormData(form).entries()), file = form.querySelector('[name="titleFile"]')?.files?.[0], statusMessage = $('#native-prematricula-message', panel); let attachment = null; try { attachment = await readAttachmentForSync(file); } catch (error) { statusMessage.textContent = error.message; statusMessage.classList.add('error'); return; } const record = { ...values, titleFile: file?.name || '', status: values.status || 'Pre-matriculado', createdAt: new Date().toISOString(), syncId: (crypto.randomUUID?.() || `stn-${Date.now()}-${Math.random().toString(36).slice(2)}`) }; const records = JSON.parse(localStorage.getItem('stn-prematriculas') || '[]'); records.unshift(record); localStorage.setItem('stn-prematriculas', JSON.stringify(records)); const students = getStudents(); students.unshift({ name: values.name, contact: values.phone || values.email, specialty: values.specialty, status: record.status, identification: values.identification, email: values.email }); localStorage.setItem('stn-students', JSON.stringify(students)); updateDashboard(); statusMessage.textContent = `✓ Todos los datos de ${values.name} fueron guardados en el sistema. ${attachment ? 'Cargando el documento adjunto de forma segura…' : 'Sincronizando con la base institucional…'}`; statusMessage.classList.remove('error'); const remoteRecord = attachment ? { ...record, titleFileContent: attachment.base64, titleFileMime: attachment.mime } : record; syncPrematriculaToRemote(remoteRecord).then(() => { const pending = readPendingSync().some(item => item.createdAt === record.createdAt); statusMessage.textContent = pending ? `✓ Datos guardados para ${values.name}. Quedaron pendientes de sincronización y se reintentará automáticamente.` : `✓ Confirmado: todos los datos de ${values.name}${attachment ? ' y su archivo adjunto' : ''} fueron guardados y enviados a la base institucional.`; setTimeout(() => loadTeacherDatabaseForSession?.(), 2500); }); form.reset(); });
   $('#native-prematricula-form', panel).addEventListener('submit', () => setTimeout(() => { const saved = JSON.parse(localStorage.getItem('stn-prematriculas') || '[]')[0]; if (saved) window.dispatchEvent(new CustomEvent('stn-prematricula-saved', { detail: saved })); }, 0));
   if (localStorage.getItem('stn-prematriculas')) window.dispatchEvent(new CustomEvent('stn-prematricula-saved'));
 }
@@ -516,6 +537,14 @@ if (teacherAgenda) {
   function startTeacherDatabaseRefresh() { if (!teacherDatabaseTimer) teacherDatabaseTimer = setInterval(loadRemoteTeacherDatabase, 10000); }
   function updateDatabaseCounters() { const pre = csvState.records.filter(r => !/matriculad[oa]/i.test(r.status) || /pre.?matriculad/i.test(r.status)).length, mat = csvState.records.filter(r => /matriculad[oa]/i.test(r.status) && !/pre.?matriculad/i.test(r.status)).length; const preCount = $('#pre-count'); const matCount = $('#mat-count'); if (preCount) preCount.textContent = pre; if (matCount) matCount.textContent = mat; }
   function normalizeSearchText(value) { return String(value ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\s-]+/g, ' ').trim(); }
+  function renderRecordField(key, value) {
+    const text = String(value || '');
+    const isAttachment = /adjunta.*titulo|archivo adjunto|documento adjunto/i.test(key);
+    if (isAttachment && /^https:\/\/drive\.google\.com\//i.test(text)) {
+      return `<a class="attachment-link" href="${escapeHtml(text)}" target="_blank" rel="noopener noreferrer">↗ Ver archivo adjunto</a>`;
+    }
+    return escapeHtml(text || '—');
+  }
   function renderDatabase() {
     const activeFilter = allowedTeacherSpecialty() || csvState.filter;
     const search = normalizeSearchText(csvState.search);
@@ -527,7 +556,7 @@ if (teacherAgenda) {
     $('#db-duplicates').textContent = duplicateCount;
     updateDatabaseCounters();
     $('#db-source').textContent = csvState.records.length ? `Base cargada en este dispositivo · filtro: ${activeFilter}${search ? ` · búsqueda: ${csvState.search.trim()}` : ''}` : 'Importá la base CSV desde este dispositivo para ver prematrícula y matrícula. La información no se publica.';
-    $('#csv-table-body').innerHTML = rows.length ? rows.map(r => { const viewKey = recordViewKey(r); return `<tr class="${r.duplicate ? 'is-duplicate' : ''}"><td><b>${escapeHtml(r.name)}</b><details class="record-details" data-detail-key="${escapeHtml(viewKey)}"${expandedRecordKeys.has(viewKey) ? ' open' : ''}><summary>Ver todos los datos</summary><dl>${Object.entries(r.raw).map(([k, v]) => `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v || '—')}</dd>`).join('')}</dl></details></td><td>${escapeHtml(r.id || '—')}</td><td>${escapeHtml(r.specialty)}</td><td><a href="mailto:${encodeURIComponent(r.email)}">${escapeHtml(r.email || '—')}</a><small>${escapeHtml(r.phone || '')}</small></td><td><span class="new-status-badge">${escapeHtml(r.isNew ? 'NUEVO · PREMATRICULADO' : (r.status || 'Registrado'))}</span><small class="record-timestamp">${escapeHtml(r.timestamp || 'Fecha no disponible')}</small></td><td>${r.duplicate ? `<span class="duplicate-badge">Duplicado en: ${escapeHtml(r.duplicateSpecialties.join(', '))}</span>` : '<span class="ok-badge">Registro único</span>'}</td><td><button class="table-action" data-record="${r.index}" type="button">Agendar</button>${teacherAccess.role === 'admin' ? `<button class="table-delete database-delete" data-record-delete="${r.index}" type="button">Eliminar</button>` : ''}</td></tr>`; }).join('') : '<tr><td colspan="7">No hay registros para esta búsqueda o especialidad.</td></tr>';
+    $('#csv-table-body').innerHTML = rows.length ? rows.map(r => { const viewKey = recordViewKey(r); return `<tr class="${r.duplicate ? 'is-duplicate' : ''}"><td><b>${escapeHtml(r.name)}</b><details class="record-details" data-detail-key="${escapeHtml(viewKey)}"${expandedRecordKeys.has(viewKey) ? ' open' : ''}><summary>Ver todos los datos</summary><dl>${Object.entries(r.raw).map(([k, v]) => `<dt>${escapeHtml(k)}</dt><dd>${renderRecordField(k, v)}</dd>`).join('')}</dl></details></td><td>${escapeHtml(r.id || '—')}</td><td>${escapeHtml(r.specialty)}</td><td><a href="mailto:${encodeURIComponent(r.email)}">${escapeHtml(r.email || '—')}</a><small>${escapeHtml(r.phone || '')}</small></td><td><span class="new-status-badge">${escapeHtml(r.isNew ? 'NUEVO · PREMATRICULADO' : (r.status || 'Registrado'))}</span><small class="record-timestamp">${escapeHtml(r.timestamp || 'Fecha no disponible')}</small></td><td>${r.duplicate ? `<span class="duplicate-badge">Duplicado en: ${escapeHtml(r.duplicateSpecialties.join(', '))}</span>` : '<span class="ok-badge">Registro único</span>'}</td><td><button class="table-action" data-record="${r.index}" type="button">Agendar</button>${teacherAccess.role === 'admin' ? `<button class="table-delete database-delete" data-record-delete="${r.index}" type="button">Eliminar</button>` : ''}</td></tr>`; }).join('') : '<tr><td colspan="7">No hay registros para esta búsqueda o especialidad.</td></tr>';
     $$('.record-details', db).forEach(details => details.addEventListener('toggle', () => {
       const key = details.dataset.detailKey;
       if (!key) return;
