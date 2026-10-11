@@ -477,14 +477,32 @@ if (teacherAgenda) {
   let remoteRequestInFlight = false;
   let remoteRequestToken = 0;
   let lastRemoteSnapshot = '';
+  let remoteDatabaseAvailable = false;
+  let backupDatabaseLoaded = false;
+  async function restoreTeacherDatabaseBackup() {
+    if (remoteDatabaseAvailable || backupDatabaseLoaded || csvState.records.length) return;
+    try {
+      const response = await fetch('data/base-datos-2026.csv?v=20261006-database-128', { cache: 'no-store' });
+      if (!response.ok) throw new Error('Respaldo no disponible');
+      const deletedKeys = getDeletedRecordKeys();
+      csvState.records.splice(0, csvState.records.length, ...prepareRecords(csvParse(await response.text())).filter(record => !isDeletedRecord(record, deletedKeys)));
+      backupDatabaseLoaded = true;
+      renderDatabase();
+      $('#db-source').textContent = `Respaldo institucional recuperado · ${csvState.records.length} registros · reconectando con la base en línea…`;
+    } catch (_) {
+      $('#db-source').textContent = 'No fue posible conectar con la base institucional ni recuperar el respaldo.';
+    }
+  }
   function loadRemoteTeacherDatabase() {
     if (!SYNC_ENDPOINT || SYNC_ENDPOINT.includes('PASTE_')) return;
     if (remoteRequestInFlight) return;
     remoteRequestInFlight = true;
     const requestToken = ++remoteRequestToken;
     const callback = `stnReceiveTeacherDatabase_${Date.now()}`;
+    let responseTimer;
     window[callback] = payload => {
-      if (!payload?.ok || !Array.isArray(payload.rows) || requestToken !== remoteRequestToken) { remoteRequestInFlight = false; delete window[callback]; return; }
+      window.clearTimeout(responseTimer);
+      if (!payload?.ok || !Array.isArray(payload.rows) || requestToken !== remoteRequestToken) { remoteRequestInFlight = false; delete window[callback]; script.remove(); return; }
       const headers = payload.headers || [];
       const snapshot = JSON.stringify([headers, payload.rows]);
       // La consulta automática no vuelve a pintar nada si la fuente no cambió.
@@ -496,6 +514,7 @@ if (teacherAgenda) {
         return;
       }
       lastRemoteSnapshot = snapshot;
+      remoteDatabaseAvailable = true;
       const raw = payload.rows.map(row => Object.fromEntries(headers.map((header, index) => [header, row[index] || ''])));
       if (Array.isArray(payload.appointments)) {
         saveAppointments([...getAppointments(), ...payload.appointments]);
@@ -512,7 +531,15 @@ if (teacherAgenda) {
     };
     const script = document.createElement('script');
     script.src = `${SYNC_ENDPOINT}?callback=${callback}&_=${Date.now()}`;
-    script.onerror = () => { remoteRequestInFlight = false; delete window[callback]; script.remove(); };
+    const recoverFromUnavailableRemote = () => {
+      if (requestToken !== remoteRequestToken) return;
+      remoteRequestInFlight = false;
+      delete window[callback];
+      script.remove();
+      restoreTeacherDatabaseBackup();
+    };
+    responseTimer = window.setTimeout(recoverFromUnavailableRemote, 9000);
+    script.onerror = () => { window.clearTimeout(responseTimer); recoverFromUnavailableRemote(); };
     document.body.append(script);
   }
   async function loadTeacherDatabase() {
