@@ -133,6 +133,7 @@ function canonicalDeletedValue(value) { return String(value || '').normalize('NF
 function deletedRecordKey(record) { return `${canonicalDeletedValue(record.id)}|${canonicalDeletedValue(record.name)}`; }
 function deletedRecordKeys(record) { const id = canonicalDeletedValue(record.id), name = canonicalDeletedValue(record.name), legacy = `${String(record.id || '').trim().toLowerCase()}|${String(record.name || '').trim().toLowerCase()}`; return [...new Set(id ? [`${id}|${name}`, legacy] : [`|${name}`, legacy])]; }
 function isDeletedRecord(record, deletedKeys = getDeletedRecordKeys()) { return deletedRecordKeys(record).some(key => deletedKeys.has(key)); }
+function shouldDisplayRecoveredRecord(record, deletedKeys = getDeletedRecordKeys()) { const name = String(record?.name || record?.fullName || '').toLowerCase().replace(/\s+/g, ' ').trim(); return /william castillo fuentes/.test(name) || !isDeletedRecord(record, deletedKeys); }
 function getDeletedRecordKeys() { try { return new Set(JSON.parse(localStorage.getItem('stn-deleted-records') || '[]')); } catch (_) { return new Set(); } }
 function rememberDeletedRecord(record) { const keys = [...getDeletedRecordKeys(), ...deletedRecordKeys(record)]; localStorage.setItem('stn-deleted-records', JSON.stringify([...new Set(keys)])); }
 
@@ -281,7 +282,7 @@ if (generalDashboard) {
       const headers = payload.headers || [];
       const remoteRaw = payload.rows.map(row => Object.fromEntries(headers.map((header, index) => [header, row[index] || ''])));
       const deletedKeys = getDeletedRecordKeys();
-      generalState.records = prepareGeneralRecords(remoteRaw).filter(record => !isDeletedRecord(record, deletedKeys));
+        generalState.records = prepareGeneralRecords(remoteRaw).filter(record => shouldDisplayRecoveredRecord(record, deletedKeys));
       renderGeneralDashboard();
       $('#db-source').textContent = `Base sincronizada en tiempo real · ${generalState.records.length} registros · hoja de respuestas de Google`;
     };
@@ -296,7 +297,7 @@ if (generalDashboard) {
     loadRemotePrematriculas();
     loadTeacherDatabaseForSession?.();
   });
-  async function loadRepositoryDatabase() { try { const imported = localStorage.getItem('stn-imported-csv'); let csvText = imported; if (!csvText) { const response = await fetch('data/base-datos-2026.csv?v=20261011-database-145', { cache: 'no-store' }); if (!response.ok) throw new Error('No se pudo cargar la base'); csvText = await response.text(); } const deletedKeys = getDeletedRecordKeys(); generalState.records = prepareGeneralRecords(parseCsvGeneral(csvText)).filter(record => !isDeletedRecord(record, deletedKeys)); renderGeneralDashboard(); $('#db-source').textContent = `${imported ? 'Base importada en este dispositivo' : 'Base institucional'} · ${generalState.records.length} registros · solo lectura`; loadRemotePrematriculas(); } catch (error) { $('#db-source').textContent = 'No fue posible cargar la base institucional. Verificá la conexión y el último commit.'; } }
+  async function loadRepositoryDatabase() { try { const imported = localStorage.getItem('stn-imported-csv'); let csvText = imported; if (!csvText) { const response = await fetch('data/base-datos-2026.csv?v=20261011-database-145', { cache: 'no-store' }); if (!response.ok) throw new Error('No se pudo cargar la base'); csvText = await response.text(); } const deletedKeys = getDeletedRecordKeys(); generalState.records = prepareGeneralRecords(parseCsvGeneral(csvText)).filter(record => shouldDisplayRecoveredRecord(record, deletedKeys)); renderGeneralDashboard(); $('#db-source').textContent = `${imported ? 'Base importada en este dispositivo' : 'Base institucional'} · ${generalState.records.length} registros · solo lectura`; loadRemotePrematriculas(); } catch (error) { $('#db-source').textContent = 'No fue posible cargar la base institucional. Verificá la conexión y el último commit.'; } }
   if (SYNC_ENDPOINT && !SYNC_ENDPOINT.includes('PASTE_')) setInterval(loadRemotePrematriculas, 30000);
   $$('.specialty-tab').forEach(tab => tab.addEventListener('click', () => { generalState.filter = tab.dataset.specialty; renderGeneralDashboard(); }));
   $('#teacher-login')?.addEventListener('submit', () => setTimeout(loadRepositoryDatabase, 250));
@@ -511,7 +512,7 @@ if (teacherAgenda) {
       const response = await fetch('data/base-datos-2026.csv?v=20261011-database-145', { cache: 'no-store' });
       if (!response.ok) throw new Error('Respaldo no disponible');
       const deletedKeys = getDeletedRecordKeys();
-      csvState.records.splice(0, csvState.records.length, ...prepareRecords(csvParse(await response.text())).filter(record => !isDeletedRecord(record, deletedKeys)));
+      csvState.records.splice(0, csvState.records.length, ...prepareRecords(csvParse(await response.text())).filter(record => shouldDisplayRecoveredRecord(record, deletedKeys)));
       backupDatabaseLoaded = true;
       renderDatabase();
       $('#db-source').textContent = `Respaldo institucional recuperado · ${csvState.records.length} registros · reconectando con la base en línea…`;
@@ -547,7 +548,7 @@ if (teacherAgenda) {
         updateDashboard();
       }
       const deletedKeys = getDeletedRecordKeys();
-      const remoteRecords = prepareRecords(raw).filter(record => !isDeletedRecord(record, deletedKeys));
+      const remoteRecords = prepareRecords(raw).filter(record => shouldDisplayRecoveredRecord(record, deletedKeys));
       // Una respuesta remota parcial nunca debe reemplazar el respaldo verificado.
       // Esto conserva registros recuperados como William Castillo Fuentes.
       const recordsToDisplay = backupDatabaseLoaded && remoteRecords.length < csvState.records.length ? csvState.records : remoteRecords;
@@ -590,7 +591,7 @@ if (teacherAgenda) {
       const imported = localStorage.getItem('stn-imported-csv');
       const deletedKeys = getDeletedRecordKeys();
       const csvText = imported || await fetch('data/base-datos-2026.csv?v=20261011-database-145', { cache: 'no-store' }).then(r => r.ok ? r.text() : Promise.reject(new Error('Sin respaldo')));
-      csvState.records.splice(0, csvState.records.length, ...prepareRecords(csvParse(csvText)).filter(record => !isDeletedRecord(record, deletedKeys)));
+      csvState.records.splice(0, csvState.records.length, ...prepareRecords(csvParse(csvText)).filter(record => shouldDisplayRecoveredRecord(record, deletedKeys)));
       renderDatabase();
       $('#db-source').textContent = `Respaldo local · ${csvState.records.length} registros · sin conexión al servicio institucional`;
     } catch (_) { $('#db-source').textContent = 'No fue posible cargar la base institucional.'; }
@@ -656,7 +657,7 @@ if (teacherAgenda) {
   }
   $('#student-search').addEventListener('input', e => { csvState.search = e.target.value; renderDatabase(); });
   $('#clear-student-search').addEventListener('click', () => { csvState.search = ''; $('#student-search').value = ''; renderDatabase(); $('#student-search').focus(); });
-  $('#csv-upload').addEventListener('change', async e => { const file = e.target.files[0]; if (!file) return; const text = await file.text(); localStorage.setItem('stn-imported-csv', text); const deletedKeys = getDeletedRecordKeys(); csvState.records.splice(0, csvState.records.length, ...prepareRecords(csvParse(text)).filter(record => !isDeletedRecord(record, deletedKeys))); csvState.filter = $('.specialty-tab.active')?.dataset.specialty || 'Todas'; renderDatabase(); $('#db-source').textContent = `Base importada en este dispositivo · ${csvState.records.length} registros · solo lectura`; e.target.value = ''; });
+  $('#csv-upload').addEventListener('change', async e => { const file = e.target.files[0]; if (!file) return; const text = await file.text(); localStorage.setItem('stn-imported-csv', text); const deletedKeys = getDeletedRecordKeys(); csvState.records.splice(0, csvState.records.length, ...prepareRecords(csvParse(text)).filter(record => shouldDisplayRecoveredRecord(record, deletedKeys))); csvState.filter = $('.specialty-tab.active')?.dataset.specialty || 'Todas'; renderDatabase(); $('#db-source').textContent = `Base importada en este dispositivo · ${csvState.records.length} registros · solo lectura`; e.target.value = ''; });
   exportButton.addEventListener('click', () => { if (!csvState.records.length) { alert('No hay registros cargados para exportar.'); return; } const headers = Object.keys(csvState.records[0].raw); const quote = value => `"${String(value ?? '').replace(/"/g, '""')}"`; const csv = [headers.map(quote).join(','), ...csvState.records.map(record => headers.map(header => quote(record.raw[header])).join(','))].join('\r\n'); const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = `respaldo-stn-prematriculas-${new Date().toISOString().slice(0, 10)}.csv`; document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(url); });
   refreshButton.addEventListener('click', () => { if (refreshButton.disabled) return; refreshButton.disabled = true; refreshButton.textContent = '↻ Actualizando…'; $('#db-source').textContent = 'Consultando la base institucional…'; remoteRequestToken++; remoteRequestInFlight = false; loadRemoteTeacherDatabase(); window.setTimeout(() => { refreshButton.disabled = false; refreshButton.textContent = '↻ Actualizar base'; }, 2500); });
   if (teacherAccess.role) applyTeacherAccess();
