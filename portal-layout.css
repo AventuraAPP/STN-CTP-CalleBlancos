@@ -1,0 +1,48 @@
+/* Expansión de registros: el detalle ocupa todo el ancho disponible. */
+.database-table td:first-child {
+  min-width: 220px;
+}
+
+.database-table details[open] {
+  position: relative;
+  z-index: 12;
+}
+
+.database-table details[open] dl {
+  width: min(calc(100vw - 92px), 1180px);
+  min-width: 680px;
+  max-width: none;
+  max-height: min(58vh, 560px);
+  overflow: auto;
+  grid-template-columns: minmax(230px, .72fr) minmax(330px, 1.28fr);
+  padding: 14px 16px;
+  border: 1px solid rgba(112, 215, 255, .42);
+  border-radius: 12px;
+  background: linear-gradient(135deg, #082a57 0%, #0c4175 100%);
+  box-shadow: 0 14px 30px rgba(1, 12, 32, .32);
+}
+
+.database-table details[open] dt {
+  color: #9bd9f6;
+  font-weight: 700;
+}
+
+.database-table details[open] dd {
+  color: #f5fbff;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  .database-table details[open] dl {
+    width: calc(100vw - 42px);
+    min-width: 0;
+    max-height: 62vh;
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .database-table details[open] dd {
+    padding-bottom: 7px;
+    border-bottom: 1px solid rgba(155, 217, 246, .16);
+  }
+}
