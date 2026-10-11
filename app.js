@@ -477,17 +477,22 @@ if (teacherAgenda) {
   }
   async function loadTeacherDatabase() {
     try {
+      // La fuente institucional remota es la única fuente cuando está disponible.
+      // Cargar primero la copia CSV local (124) y después la remota (137) hacía que
+      // el contador alternara en cada refresco y parecía que los registros regresaban.
+      if (SYNC_ENDPOINT && !SYNC_ENDPOINT.includes('PASTE_')) {
+        $('#db-source').textContent = 'Consultando la base institucional…';
+        loadRemoteTeacherDatabase();
+        startTeacherDatabaseRefresh();
+        return;
+      }
+      // Solo sin sincronización remota se muestra un respaldo local/importado.
       const imported = localStorage.getItem('stn-imported-csv');
       const deletedKeys = getDeletedRecordKeys();
-      if (imported) csvState.records.splice(0, csvState.records.length, ...prepareRecords(csvParse(imported)).filter(record => !isDeletedRecord(record, deletedKeys)));
-      else {
-        const response = await fetch('data/base-datos-2026.csv?v=20261006-database-128', { cache: 'no-store' });
-        if (response.ok) csvState.records.splice(0, csvState.records.length, ...prepareRecords(csvParse(await response.text())).filter(record => !isDeletedRecord(record, deletedKeys)));
-      }
+      const csvText = imported || await fetch('data/base-datos-2026.csv?v=20261006-database-128', { cache: 'no-store' }).then(r => r.ok ? r.text() : Promise.reject(new Error('Sin respaldo')));
+      csvState.records.splice(0, csvState.records.length, ...prepareRecords(csvParse(csvText)).filter(record => !isDeletedRecord(record, deletedKeys)));
       renderDatabase();
-      $('#db-source').textContent = `Base institucional · ${csvState.records.length} registros · sincronizando…`;
-      loadRemoteTeacherDatabase();
-      startTeacherDatabaseRefresh();
+      $('#db-source').textContent = `Respaldo local · ${csvState.records.length} registros · sin conexión al servicio institucional`;
     } catch (_) { $('#db-source').textContent = 'No fue posible cargar la base institucional.'; }
   }
   loadTeacherDatabaseForSession = loadTeacherDatabase;
