@@ -33,8 +33,128 @@
 }
 
 @media (max-width: 760px) {
+  .teacher-section.teacher-portal-active {
+    padding-inline: 14px;
+  }
+
+  .dashboard-head {
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .dashboard-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .database-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 10px;
+  }
+
+  .database-summary > div:last-of-type {
+    grid-column: 1 / -1;
+  }
+
+  .database-table-wrap {
+    overflow: visible;
+    border: 0;
+    background: transparent;
+  }
+
+  .database-table,
+  .database-table tbody {
+    display: grid;
+    width: 100%;
+    min-width: 0 !important;
+    background: transparent;
+  }
+
+  .database-table {
+    border-spacing: 0;
+  }
+
+  .database-table thead {
+    display: none;
+  }
+
+  .database-table tbody {
+    gap: 12px;
+  }
+
+  .database-table tbody tr {
+    display: block;
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid #2d5b8f;
+    border-radius: 14px;
+    background: linear-gradient(145deg, #123f77, #0d315f);
+    box-shadow: 0 8px 18px rgba(1, 16, 40, .18);
+  }
+
+  .database-table tbody td,
+  .database-table tbody td:first-child,
+  .database-table tbody td:last-child {
+    display: grid;
+    grid-template-columns: minmax(96px, .58fr) minmax(0, 1.42fr);
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    padding: 7px 0;
+    border: 0 !important;
+    border-radius: 0 !important;
+    overflow-wrap: anywhere;
+  }
+
+  .database-table tbody td::before {
+    color: #8fc9ec;
+    content: '';
+    font-size: .59rem;
+    font-weight: 900;
+    letter-spacing: .07em;
+    line-height: 1.35;
+    text-transform: uppercase;
+  }
+
+  .database-table tbody td:first-child {
+    display: block;
+    padding-top: 0;
+  }
+
+  .database-table tbody td:first-child::before {
+    display: none;
+  }
+
+  .database-table tbody td:first-child b {
+    max-width: none;
+    font-size: 1.08rem;
+  }
+
+  .database-table tbody td:nth-child(2)::before { content: 'Identificación'; }
+  .database-table tbody td:nth-child(3)::before { content: 'Especialidad'; }
+  .database-table tbody td:nth-child(4)::before { content: 'Correo / contacto'; }
+  .database-table tbody td:nth-child(5)::before { content: 'Estado y fecha'; }
+  .database-table tbody td:nth-child(6)::before { content: 'Observación'; }
+  .database-table tbody td:nth-child(7) {
+    display: block;
+    padding-bottom: 0;
+  }
+
+  .database-table tbody td:nth-child(7)::before {
+    display: block;
+    margin-bottom: 4px;
+    content: 'Acción';
+  }
+
+  .database-table .table-action,
+  .database-table .table-delete {
+    width: 100%;
+    margin-top: 7px;
+  }
+
   .database-table details[open] dl {
-    width: calc(100vw - 42px);
+    width: 100%;
     min-width: 0;
     max-height: 62vh;
     grid-template-columns: 1fr;
@@ -44,5 +164,30 @@
   .database-table details[open] dd {
     padding-bottom: 7px;
     border-bottom: 1px solid rgba(155, 217, 246, .16);
+  }
+}
+
+@media (max-width: 430px) {
+  .teacher-section.teacher-portal-active {
+    padding-inline: 10px;
+  }
+
+  .dashboard-actions,
+  .database-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .database-summary > div:last-of-type {
+    grid-column: auto;
+  }
+
+  .database-table tbody td,
+  .database-table tbody td:first-child {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+
+  .database-table tbody td:not(:first-child)::before {
+    margin-bottom: 2px;
   }
 }
