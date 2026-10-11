@@ -283,7 +283,7 @@ if (generalDashboard) {
     loadRemotePrematriculas();
     loadTeacherDatabaseForSession?.();
   });
-  async function loadRepositoryDatabase() { try { const imported = localStorage.getItem('stn-imported-csv'); let csvText = imported; if (!csvText) { const response = await fetch('data/base-datos-2026.csv?v=20261006-database-128', { cache: 'no-store' }); if (!response.ok) throw new Error('No se pudo cargar la base'); csvText = await response.text(); } const deletedKeys = getDeletedRecordKeys(); generalState.records = prepareGeneralRecords(parseCsvGeneral(csvText)).filter(record => !isDeletedRecord(record, deletedKeys)); renderGeneralDashboard(); $('#db-source').textContent = `${imported ? 'Base importada en este dispositivo' : 'Base institucional'} · ${generalState.records.length} registros · solo lectura`; loadRemotePrematriculas(); } catch (error) { $('#db-source').textContent = 'No fue posible cargar la base institucional. Verificá la conexión y el último commit.'; } }
+  async function loadRepositoryDatabase() { try { const imported = localStorage.getItem('stn-imported-csv'); let csvText = imported; if (!csvText) { const response = await fetch('data/base-datos-2026.csv?v=20261011-database-145', { cache: 'no-store' }); if (!response.ok) throw new Error('No se pudo cargar la base'); csvText = await response.text(); } const deletedKeys = getDeletedRecordKeys(); generalState.records = prepareGeneralRecords(parseCsvGeneral(csvText)).filter(record => !isDeletedRecord(record, deletedKeys)); renderGeneralDashboard(); $('#db-source').textContent = `${imported ? 'Base importada en este dispositivo' : 'Base institucional'} · ${generalState.records.length} registros · solo lectura`; loadRemotePrematriculas(); } catch (error) { $('#db-source').textContent = 'No fue posible cargar la base institucional. Verificá la conexión y el último commit.'; } }
   if (SYNC_ENDPOINT && !SYNC_ENDPOINT.includes('PASTE_')) setInterval(loadRemotePrematriculas, 30000);
   $$('.specialty-tab').forEach(tab => tab.addEventListener('click', () => { generalState.filter = tab.dataset.specialty; renderGeneralDashboard(); }));
   $('#teacher-login')?.addEventListener('submit', () => setTimeout(loadRepositoryDatabase, 250));
@@ -482,7 +482,7 @@ if (teacherAgenda) {
   async function restoreTeacherDatabaseBackup() {
     if (remoteDatabaseAvailable || backupDatabaseLoaded || csvState.records.length) return;
     try {
-      const response = await fetch('data/base-datos-2026.csv?v=20261006-database-128', { cache: 'no-store' });
+      const response = await fetch('data/base-datos-2026.csv?v=20261011-database-145', { cache: 'no-store' });
       if (!response.ok) throw new Error('Respaldo no disponible');
       const deletedKeys = getDeletedRecordKeys();
       csvState.records.splice(0, csvState.records.length, ...prepareRecords(csvParse(await response.text())).filter(record => !isDeletedRecord(record, deletedKeys)));
@@ -556,7 +556,7 @@ if (teacherAgenda) {
       // Solo sin sincronización remota se muestra un respaldo local/importado.
       const imported = localStorage.getItem('stn-imported-csv');
       const deletedKeys = getDeletedRecordKeys();
-      const csvText = imported || await fetch('data/base-datos-2026.csv?v=20261006-database-128', { cache: 'no-store' }).then(r => r.ok ? r.text() : Promise.reject(new Error('Sin respaldo')));
+      const csvText = imported || await fetch('data/base-datos-2026.csv?v=20261011-database-145', { cache: 'no-store' }).then(r => r.ok ? r.text() : Promise.reject(new Error('Sin respaldo')));
       csvState.records.splice(0, csvState.records.length, ...prepareRecords(csvParse(csvText)).filter(record => !isDeletedRecord(record, deletedKeys)));
       renderDatabase();
       $('#db-source').textContent = `Respaldo local · ${csvState.records.length} registros · sin conexión al servicio institucional`;
