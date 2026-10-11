@@ -273,7 +273,16 @@ if (generalDashboard) {
       cell.append(removeButton);
     });
   }
-  renderGeneralDashboard = function () { renderGeneralDashboardBase(); installAdminDeleteControls(); };
+  renderGeneralDashboard = function () {
+    renderGeneralDashboardBase();
+    // No dejes botones administrativos visibles si la sesión cambia de
+    // administrador a docente de departamento sin recargar la página.
+    if (teacherAccess.role !== 'admin') {
+      $$('.table-delete', generalDashboard).forEach(button => button.remove());
+      return;
+    }
+    installAdminDeleteControls();
+  };
 
   function loadRemotePrematriculas() {
     if (!SYNC_ENDPOINT || SYNC_ENDPOINT.includes('PASTE_')) return;
@@ -464,6 +473,11 @@ function installPrematriculaPanel() {
 }
 function applyTeacherAccess() {
   const admin = teacherAccess.role === 'admin', specialty = allowedTeacherSpecialty();
+  if (!admin) {
+    // Limpieza defensiva para evitar que un control de otra sesión permanezca
+    // en pantalla durante el cambio de rol o al cerrar sesión.
+    $$('.table-delete, .database-delete, .appointment-delete', teacherDashboard).forEach(button => button.remove());
+  }
   const roleLabel = $('.dashboard-head b', teacherDashboard);
   if (roleLabel) roleLabel.textContent = admin ? 'Portal docente · Administrador' : `Portal docente · ${specialty}`;
   $$('.specialty-tab', teacherDashboard).forEach(tab => { const visible = admin || tab.dataset.specialty === specialty; tab.classList.toggle('hidden', !visible); tab.classList.toggle('active', admin ? tab.dataset.specialty === 'Todas' : tab.dataset.specialty === specialty); });
