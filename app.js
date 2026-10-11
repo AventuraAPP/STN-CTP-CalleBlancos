@@ -106,9 +106,12 @@ function deletePrematriculaFromRemote(record) {
     document.body.append(script);
   });
 }
-function deletedRecordKey(record) { return `${String(record.id || '').trim().toLowerCase()}|${String(record.name || '').trim().toLowerCase()}`; }
+function canonicalDeletedValue(value) { return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); }
+function deletedRecordKey(record) { return `${canonicalDeletedValue(record.id)}|${canonicalDeletedValue(record.name)}`; }
+function deletedRecordKeys(record) { const id = canonicalDeletedValue(record.id), name = canonicalDeletedValue(record.name); return id ? [`${id}|${name}`] : [`|${name}`]; }
+function isDeletedRecord(record, deletedKeys = getDeletedRecordKeys()) { return deletedRecordKeys(record).some(key => deletedKeys.has(key)); }
 function getDeletedRecordKeys() { try { return new Set(JSON.parse(localStorage.getItem('stn-deleted-records') || '[]')); } catch (_) { return new Set(); } }
-function rememberDeletedRecord(record) { const keys = [...getDeletedRecordKeys(), deletedRecordKey(record)]; localStorage.setItem('stn-deleted-records', JSON.stringify([...new Set(keys)])); }
+function rememberDeletedRecord(record) { const keys = [...getDeletedRecordKeys(), ...deletedRecordKeys(record)]; localStorage.setItem('stn-deleted-records', JSON.stringify([...new Set(keys)])); }
 
 const menu = $('.menu-toggle');
 const nav = $('.main-nav');
@@ -214,7 +217,7 @@ if (generalDashboard) {
       const headers = payload.headers || [];
       const remoteRaw = payload.rows.map(row => Object.fromEntries(headers.map((header, index) => [header, row[index] || ''])));
       const deletedKeys = getDeletedRecordKeys();
-      generalState.records = prepareGeneralRecords(remoteRaw).filter(record => !deletedKeys.has(deletedRecordKey(record)));
+      generalState.records = prepareGeneralRecords(remoteRaw).filter(record => !isDeletedRecord(record, deletedKeys));
       renderGeneralDashboard();
       $('#db-source').textContent = `Base sincronizada en tiempo real · ${generalState.records.length} registros · hoja de respuestas de Google`;
     };
@@ -229,8 +232,8 @@ if (generalDashboard) {
     loadRemotePrematriculas();
     loadTeacherDatabaseForSession?.();
   });
-  async function loadRepositoryDatabase() { try { const imported = localStorage.getItem('stn-imported-csv'); let csvText = imported; if (!csvText) { const response = await fetch('data/base-datos-2026.csv?v=20261006-database-128'); if (!response.ok) throw new Error('No se pudo cargar la base'); csvText = await response.text(); } generalState.records = prepareGeneralRecords(parseCsvGeneral(csvText)); renderGeneralDashboard(); $('#db-source').textContent = `${imported ? 'Base importada en este dispositivo' : 'Base institucional'} · ${generalState.records.length} registros · solo lectura`; loadRemotePrematriculas(); } catch (error) { $('#db-source').textContent = 'No fue posible cargar la base institucional. Verificá la conexión y el último commit.'; } }
-  if (SYNC_ENDPOINT && !SYNC_ENDPOINT.includes('PASTE_')) setInterval(loadRemotePrematriculas, 10000);
+  async function loadRepositoryDatabase() { try { const imported = localStorage.getItem('stn-imported-csv'); let csvText = imported; if (!csvText) { const response = await fetch('data/base-datos-2026.csv?v=20261006-database-128', { cache: 'no-store' }); if (!response.ok) throw new Error('No se pudo cargar la base'); csvText = await response.text(); } const deletedKeys = getDeletedRecordKeys(); generalState.records = prepareGeneralRecords(parseCsvGeneral(csvText)).filter(record => !isDeletedRecord(record, deletedKeys)); renderGeneralDashboard(); $('#db-source').textContent = `${imported ? 'Base importada en este dispositivo' : 'Base institucional'} · ${generalState.records.length} registros · solo lectura`; loadRemotePrematriculas(); } catch (error) { $('#db-source').textContent = 'No fue posible cargar la base institucional. Verificá la conexión y el último commit.'; } }
+  if (SYNC_ENDPOINT && !SYNC_ENDPOINT.includes('PASTE_')) setInterval(loadRemotePrematriculas, 30000);
   $$('.specialty-tab').forEach(tab => tab.addEventListener('click', () => { generalState.filter = tab.dataset.specialty; renderGeneralDashboard(); }));
   $('#teacher-login')?.addEventListener('submit', () => setTimeout(loadRepositoryDatabase, 250));
   if (sessionStorage.getItem('stn-teacher-session')) loadRepositoryDatabase();
@@ -413,37 +416,45 @@ if (teacherAgenda) {
   function csvParse(text) { const rows = [], row = []; let cell = '', quoted = false; for (let i = 0; i < text.length; i++) { const ch = text[i], next = text[i + 1]; if (ch === '"' && quoted && next === '"') { cell += '"'; i++; } else if (ch === '"') quoted = !quoted; else if (ch === ',' && !quoted) { row.push(cell); cell = ''; } else if ((ch === '\n' || ch === '\r') && !quoted) { if (ch === '\r' && next === '\n') i++; row.push(cell); if (row.some(v => v.trim())) rows.push(row.splice(0)); cell = ''; } else cell += ch; } if (cell || row.length) { row.push(cell); rows.push(row); } const headers = (rows.shift() || []).map(h => h.replace(/^\uFEFF/, '').trim()); return rows.map(values => Object.fromEntries(headers.map((h, i) => [h, (values[i] || '').trim()]))); }
   function field(record, matcher) { const key = Object.keys(record).find(k => matcher.test(k)); return key ? record[key] : ''; }
   function normalizeSpecialty(value) { const v = value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); if (v.includes('refriger') || v.includes('aire acondicionado')) return 'Mantenimiento de Sistemas de Aire Acondicionado Industrial'; if (v.includes('ciber')) return 'Ciberseguridad'; if (v.includes('contab')) return 'Contabilidad'; if (v.includes('comercial') || v.includes('servicio al cliente')) return 'Ejecutivo Comercial y Servicio al Cliente'; if (v.includes('textil') || v.includes('diseño de productos')) return 'Diseño de Productos Industriales Textiles'; if (v.includes('electrom')) return 'Electromecánica'; return value || 'Sin especialidad'; }
-  function prepareRecords(raw) { const records = raw.map((r, index) => ({ raw: r, index, name: field(r, /nombre completo/i) || 'Sin nombre', id: field(r, /cedula|documento de identidad/i), email: field(r, /correo electr/i), phone: field(r, /telefono principal/i), specialty: normalizeSpecialty(field(r, /especialidad.*matricular/i)), status: field(r, /estado|situacion|condicion/i) || 'Pre-matriculado', province: field(r, /provincia/i), canton: field(r, /canton/i), timestamp: field(r, /marca temporal/i), syncId: field(r, /id de sincronización/i), isNew: /pre.?matriculad|nuevo/i.test(field(r, /estado|situacion|condicion/i) || 'Pre-matriculado') })); const groups = {}; records.forEach(r => { const key = (r.id || r.name).toLowerCase().replace(/\s+/g, ' ').trim(); (groups[key] ||= []).push(r); }); records.forEach(r => { const key = (r.id || r.name).toLowerCase().replace(/\s+/g, ' ').trim(), group = groups[key] || []; r.duplicateSpecialties = [...new Set(group.map(x => x.specialty))]; r.duplicate = group.length > 1; }); return records; }
+  function prepareRecords(raw) { const records = raw.map((r, index) => ({ raw: r, index, name: field(r, /nombre completo/i) || 'Sin nombre', id: field(r, /cedula|documento de identidad/i), email: field(r, /correo electr/i), phone: field(r, /telefono principal/i), specialty: normalizeSpecialty(field(r, /especialidad.*matricular/i)), status: field(r, /estado|situacion|condicion/i) || 'Pre-matriculado', province: field(r, /provincia/i), canton: field(r, /canton/i), timestamp: field(r, /marca temporal/i) })); const groups = {}; records.forEach(r => { const key = (r.id || r.name).toLowerCase().replace(/\s+/g, ' ').trim(); (groups[key] ||= []).push(r); }); records.forEach(r => { const key = (r.id || r.name).toLowerCase().replace(/\s+/g, ' ').trim(), group = groups[key] || []; r.duplicateSpecialties = [...new Set(group.map(x => x.specialty))]; r.duplicate = group.length > 1; }); return records; }
+  let remoteRequestInFlight = false;
+  let remoteRequestToken = 0;
   function loadRemoteTeacherDatabase() {
     if (!SYNC_ENDPOINT || SYNC_ENDPOINT.includes('PASTE_')) return;
+    if (remoteRequestInFlight) return;
+    remoteRequestInFlight = true;
+    const requestToken = ++remoteRequestToken;
     const callback = `stnReceiveTeacherDatabase_${Date.now()}`;
     window[callback] = payload => {
-      if (!payload?.ok || !Array.isArray(payload.rows)) return;
+      if (!payload?.ok || !Array.isArray(payload.rows) || requestToken !== remoteRequestToken) { remoteRequestInFlight = false; delete window[callback]; return; }
       const headers = payload.headers || [];
       const raw = payload.rows.map(row => Object.fromEntries(headers.map((header, index) => [header, row[index] || ''])));
       if (Array.isArray(payload.appointments)) {
         saveAppointments([...getAppointments(), ...payload.appointments]);
         updateDashboard();
       }
-      csvState.records.splice(0, csvState.records.length, ...prepareRecords(raw));
+      const deletedKeys = getDeletedRecordKeys();
+      csvState.records.splice(0, csvState.records.length, ...prepareRecords(raw).filter(record => !isDeletedRecord(record, deletedKeys)));
       renderDatabase();
       updateDatabaseCounters();
       $('#db-source').textContent = `Base sincronizada en tiempo real · ${csvState.records.length} registros · búsqueda en todos los campos`;
+      remoteRequestInFlight = false;
       delete window[callback];
       script.remove();
     };
     const script = document.createElement('script');
     script.src = `${SYNC_ENDPOINT}?callback=${callback}&_=${Date.now()}`;
-    script.onerror = () => { delete window[callback]; script.remove(); };
+    script.onerror = () => { remoteRequestInFlight = false; delete window[callback]; script.remove(); };
     document.body.append(script);
   }
   async function loadTeacherDatabase() {
     try {
       const imported = localStorage.getItem('stn-imported-csv');
-      if (imported) csvState.records.splice(0, csvState.records.length, ...prepareRecords(csvParse(imported)));
+      const deletedKeys = getDeletedRecordKeys();
+      if (imported) csvState.records.splice(0, csvState.records.length, ...prepareRecords(csvParse(imported)).filter(record => !isDeletedRecord(record, deletedKeys)));
       else {
-        const response = await fetch('data/base-datos-2026.csv?v=20261006-database-128');
-        if (response.ok) csvState.records.splice(0, csvState.records.length, ...prepareRecords(csvParse(await response.text())));
+        const response = await fetch('data/base-datos-2026.csv?v=20261006-database-128', { cache: 'no-store' });
+        if (response.ok) csvState.records.splice(0, csvState.records.length, ...prepareRecords(csvParse(await response.text())).filter(record => !isDeletedRecord(record, deletedKeys)));
       }
       renderDatabase();
       $('#db-source').textContent = `Base institucional · ${csvState.records.length} registros · sincronizando…`;
@@ -491,7 +502,7 @@ if (teacherAgenda) {
   $('#clear-student-search').addEventListener('click', () => { csvState.search = ''; $('#student-search').value = ''; renderDatabase(); $('#student-search').focus(); });
   $('#csv-upload').addEventListener('change', async e => { const file = e.target.files[0]; if (!file) return; const text = await file.text(); localStorage.setItem('stn-imported-csv', text); csvState.records.splice(0, csvState.records.length, ...prepareRecords(csvParse(text))); csvState.filter = $('.specialty-tab.active')?.dataset.specialty || 'Todas'; renderDatabase(); $('#db-source').textContent = `Base importada en este dispositivo · ${csvState.records.length} registros · solo lectura`; e.target.value = ''; });
   exportButton.addEventListener('click', () => { if (!csvState.records.length) { alert('No hay registros cargados para exportar.'); return; } const headers = Object.keys(csvState.records[0].raw); const quote = value => `"${String(value ?? '').replace(/"/g, '""')}"`; const csv = [headers.map(quote).join(','), ...csvState.records.map(record => headers.map(header => quote(record.raw[header])).join(','))].join('\r\n'); const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = `respaldo-stn-prematriculas-${new Date().toISOString().slice(0, 10)}.csv`; document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(url); });
-  refreshButton.addEventListener('click', () => { $('#db-source').textContent = 'Consultando la base institucional…'; loadTeacherDatabase(); });
+  refreshButton.addEventListener('click', async () => { if (refreshButton.disabled) return; refreshButton.disabled = true; refreshButton.textContent = '↻ Actualizando…'; $('#db-source').textContent = 'Consultando la base institucional…'; remoteRequestToken++; remoteRequestInFlight = false; await loadTeacherDatabase(); window.setTimeout(() => { refreshButton.disabled = false; refreshButton.textContent = '↻ Actualizar base'; }, 1200); });
   if (teacherAccess.role) applyTeacherAccess();
   $$('.specialty-tab').forEach(tab => tab.addEventListener('click', () => { csvState.filter = tab.dataset.specialty; renderDatabase(); }));
   renderDatabase();
