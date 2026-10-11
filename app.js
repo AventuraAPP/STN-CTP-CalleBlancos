@@ -534,10 +534,14 @@ if (teacherAgenda) {
         updateDashboard();
       }
       const deletedKeys = getDeletedRecordKeys();
-      csvState.records.splice(0, csvState.records.length, ...prepareRecords(raw).filter(record => !isDeletedRecord(record, deletedKeys)));
+      const remoteRecords = prepareRecords(raw).filter(record => !isDeletedRecord(record, deletedKeys));
+      // Una respuesta remota parcial nunca debe reemplazar el respaldo verificado.
+      // Esto conserva registros recuperados como William Castillo Fuentes.
+      const recordsToDisplay = backupDatabaseLoaded && remoteRecords.length < csvState.records.length ? csvState.records : remoteRecords;
+      csvState.records.splice(0, csvState.records.length, ...recordsToDisplay);
       renderDatabase();
       updateDatabaseCounters();
-      $('#db-source').textContent = `Base sincronizada en tiempo real · ${csvState.records.length} registros · búsqueda en todos los campos`;
+      $('#db-source').textContent = recordsToDisplay === csvState.records ? `Respaldo institucional conservado · ${csvState.records.length} registros · la respuesta remota llegó incompleta` : `Base sincronizada en tiempo real · ${csvState.records.length} registros · búsqueda en todos los campos`;
       remoteRequestInFlight = false;
       delete window[callback];
       script.remove();
