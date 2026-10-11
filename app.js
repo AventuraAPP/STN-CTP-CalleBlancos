@@ -121,22 +121,30 @@ if (portalHeading) portalHeading.textContent = 'Portal docente';
 menu.addEventListener('click', () => { const open = nav.classList.toggle('open'); menu.setAttribute('aria-expanded', open); menu.textContent = open ? '×' : '☰'; });
 $$('.main-nav a').forEach(a => a.addEventListener('click', () => { nav.classList.remove('open'); menu.textContent = '☰'; menu.setAttribute('aria-expanded', 'false'); }));
 
-$('#share-prematricula')?.addEventListener('click', async event => {
-  const button = event.currentTarget;
-  const url = new URL('prematricula.html', window.location.href).href;
-  const shareData = { title: 'Prematrícula 2027 · STN CTP Calle Blancos', text: 'Accedé a la prematrícula 2027 de la Sección Técnica Nocturna del CTP Calle Blancos.', url };
+const sharePrematriculaButton = $('#share-prematricula'), sharePrematriculaMenu = $('#share-prematricula-menu'), copyPrematriculaLink = $('#copy-prematricula-link'), sharePrematriculaWhatsapp = $('#share-prematricula-whatsapp');
+const prematriculaShareUrl = new URL('prematricula.html', window.location.href).href;
+const prematriculaShareText = 'Accedé a la prematrícula 2027 de la Sección Técnica Nocturna del CTP Calle Blancos.';
+if (sharePrematriculaWhatsapp) sharePrematriculaWhatsapp.href = `https://wa.me/?text=${encodeURIComponent(`${prematriculaShareText}\n${prematriculaShareUrl}`)}`;
+async function copyPrematriculaUrl() {
   try {
-    if (navigator.share) await navigator.share(shareData);
+    if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(prematriculaShareUrl);
     else {
-      await navigator.clipboard.writeText(url);
-      const previous = button.innerHTML;
-      button.innerHTML = 'Enlace copiado <span>✓</span>';
-      window.setTimeout(() => { button.innerHTML = previous; }, 2200);
+      const temporary = document.createElement('textarea'); temporary.value = prematriculaShareUrl; temporary.setAttribute('readonly', ''); temporary.style.position = 'fixed'; temporary.style.opacity = '0'; document.body.append(temporary); temporary.select(); document.execCommand('copy'); temporary.remove();
     }
-  } catch (error) {
-    if (error?.name !== 'AbortError') window.prompt('Copiá y compartí este enlace de prematrícula:', url);
+    if (copyPrematriculaLink) { copyPrematriculaLink.textContent = 'Enlace copiado ✓'; window.setTimeout(() => { copyPrematriculaLink.textContent = 'Copiar enlace'; }, 2200); }
+  } catch (_) { window.prompt('Copiá y compartí este enlace de prematrícula:', prematriculaShareUrl); }
+}
+sharePrematriculaButton?.addEventListener('click', async () => {
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (isMobile && navigator.share) {
+    try { await navigator.share({ title: 'Prematrícula 2027 · STN CTP Calle Blancos', text: prematriculaShareText, url: prematriculaShareUrl }); return; }
+    catch (error) { if (error?.name === 'AbortError') return; }
   }
+  const open = sharePrematriculaMenu?.classList.toggle('hidden') === false;
+  sharePrematriculaButton.setAttribute('aria-expanded', String(open));
 });
+copyPrematriculaLink?.addEventListener('click', async () => { await copyPrematriculaUrl(); });
+document.addEventListener('click', event => { if (!event.target.closest('.share-control') && sharePrematriculaMenu && !sharePrematriculaMenu.classList.contains('hidden')) { sharePrematriculaMenu.classList.add('hidden'); sharePrematriculaButton?.setAttribute('aria-expanded', 'false'); } });
 
 const dialog = $('#curriculum-dialog');
 const mallas = {
