@@ -509,6 +509,8 @@ if (teacherAgenda) {
       csvState.records = csvState.records.filter(item => item !== record);
       const localRecords = JSON.parse(localStorage.getItem('stn-prematriculas') || '[]');
       localStorage.setItem('stn-prematriculas', JSON.stringify(localRecords.filter(item => item.identification !== record.id || item.name !== record.name)));
+      // Guardar primero la marca local evita que una actualización en curso lo reincorpore.
+      rememberDeletedRecord(record);
       deletePrematriculaFromRemote(record).then(result => {
         setTimeout(() => loadTeacherDatabaseForSession?.(), 1200);
         $('#db-source').textContent = result?.ok
@@ -520,7 +522,7 @@ if (teacherAgenda) {
   }
   $('#student-search').addEventListener('input', e => { csvState.search = e.target.value; renderDatabase(); });
   $('#clear-student-search').addEventListener('click', () => { csvState.search = ''; $('#student-search').value = ''; renderDatabase(); $('#student-search').focus(); });
-  $('#csv-upload').addEventListener('change', async e => { const file = e.target.files[0]; if (!file) return; const text = await file.text(); localStorage.setItem('stn-imported-csv', text); csvState.records.splice(0, csvState.records.length, ...prepareRecords(csvParse(text))); csvState.filter = $('.specialty-tab.active')?.dataset.specialty || 'Todas'; renderDatabase(); $('#db-source').textContent = `Base importada en este dispositivo · ${csvState.records.length} registros · solo lectura`; e.target.value = ''; });
+  $('#csv-upload').addEventListener('change', async e => { const file = e.target.files[0]; if (!file) return; const text = await file.text(); localStorage.setItem('stn-imported-csv', text); const deletedKeys = getDeletedRecordKeys(); csvState.records.splice(0, csvState.records.length, ...prepareRecords(csvParse(text)).filter(record => !isDeletedRecord(record, deletedKeys))); csvState.filter = $('.specialty-tab.active')?.dataset.specialty || 'Todas'; renderDatabase(); $('#db-source').textContent = `Base importada en este dispositivo · ${csvState.records.length} registros · solo lectura`; e.target.value = ''; });
   exportButton.addEventListener('click', () => { if (!csvState.records.length) { alert('No hay registros cargados para exportar.'); return; } const headers = Object.keys(csvState.records[0].raw); const quote = value => `"${String(value ?? '').replace(/"/g, '""')}"`; const csv = [headers.map(quote).join(','), ...csvState.records.map(record => headers.map(header => quote(record.raw[header])).join(','))].join('\r\n'); const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = `respaldo-stn-prematriculas-${new Date().toISOString().slice(0, 10)}.csv`; document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(url); });
   refreshButton.addEventListener('click', () => { if (refreshButton.disabled) return; refreshButton.disabled = true; refreshButton.textContent = '↻ Actualizando…'; $('#db-source').textContent = 'Consultando la base institucional…'; remoteRequestToken++; remoteRequestInFlight = false; loadRemoteTeacherDatabase(); window.setTimeout(() => { refreshButton.disabled = false; refreshButton.textContent = '↻ Actualizar base'; }, 2500); });
   if (teacherAccess.role) applyTeacherAccess();
