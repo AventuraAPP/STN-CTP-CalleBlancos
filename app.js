@@ -121,6 +121,23 @@ if (portalHeading) portalHeading.textContent = 'Portal docente';
 menu.addEventListener('click', () => { const open = nav.classList.toggle('open'); menu.setAttribute('aria-expanded', open); menu.textContent = open ? '×' : '☰'; });
 $$('.main-nav a').forEach(a => a.addEventListener('click', () => { nav.classList.remove('open'); menu.textContent = '☰'; menu.setAttribute('aria-expanded', 'false'); }));
 
+$('#share-prematricula')?.addEventListener('click', async event => {
+  const button = event.currentTarget;
+  const url = new URL('prematricula.html', window.location.href).href;
+  const shareData = { title: 'Prematrícula 2027 · STN CTP Calle Blancos', text: 'Accedé a la prematrícula 2027 de la Sección Técnica Nocturna del CTP Calle Blancos.', url };
+  try {
+    if (navigator.share) await navigator.share(shareData);
+    else {
+      await navigator.clipboard.writeText(url);
+      const previous = button.innerHTML;
+      button.innerHTML = 'Enlace copiado <span>✓</span>';
+      window.setTimeout(() => { button.innerHTML = previous; }, 2200);
+    }
+  } catch (error) {
+    if (error?.name !== 'AbortError') window.prompt('Copiá y compartí este enlace de prematrícula:', url);
+  }
+});
+
 const dialog = $('#curriculum-dialog');
 const mallas = {
   'image3.png': ['assets/mallas-2026/image3.png', 'Malla curricular adjunta: Ciberseguridad.'],
