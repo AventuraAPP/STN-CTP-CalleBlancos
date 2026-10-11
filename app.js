@@ -561,7 +561,10 @@ if (teacherAgenda) {
       // Cargar primero la copia CSV local (124) y después la remota (137) hacía que
       // el contador alternara en cada refresco y parecía que los registros regresaban.
       if (SYNC_ENDPOINT && !SYNC_ENDPOINT.includes('PASTE_')) {
-        $('#db-source').textContent = 'Consultando la base institucional…';
+        $('#db-source').textContent = 'Cargando respaldo institucional y verificando la base en línea…';
+        // Mostrar de inmediato la copia verificada (145 registros) para que el
+        // docente no vea una tabla vacía mientras responde la sincronización.
+        restoreTeacherDatabaseBackup();
         loadRemoteTeacherDatabase();
         startTeacherDatabaseRefresh();
         return;
