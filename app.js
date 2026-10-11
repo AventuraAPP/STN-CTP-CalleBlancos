@@ -435,6 +435,10 @@ if (teacherAgenda) {
   const sendButton = document.createElement('button'); sendButton.className = 'btn btn-send-confirmation'; sendButton.id = 'send-confirmation'; sendButton.type = 'button'; sendButton.textContent = 'Enviar confirmación'; sendButton.disabled = true; teacherAgenda.querySelector('#save-appointment').after(sendButton);
   let pendingMailto = '';
   const csvState = { records: [], filter: 'Todas', search: '' };
+  // Conserva las fichas desplegadas si llega una actualización real de la base.
+  // Sin esto, la recarga periódica reconstruía la tabla y cerraba «Ver todos los datos».
+  const expandedRecordKeys = new Set();
+  const recordViewKey = record => record.syncId || `${record.id}|${record.name}|${record.specialty}|${record.timestamp}`;
   const actions = teacherAgenda.parentElement.querySelector('.dashboard-actions');
   const csvLabel = document.createElement('label'); csvLabel.className = 'upload-label hidden'; csvLabel.id = 'csv-import-control'; csvLabel.dataset.adminOnly = 'true'; csvLabel.title = 'Disponible únicamente para el administrador'; csvLabel.innerHTML = '▣ Importar base de datos<input id="csv-upload" type="file" accept=".csv,text/csv" hidden>'; actions.append(csvLabel);
   const exportButton = document.createElement('button'); exportButton.type = 'button'; exportButton.id = 'export-database'; exportButton.className = 'upload-label'; exportButton.dataset.adminOnly = 'true'; exportButton.textContent = '⇩ Exportar respaldo'; exportButton.title = 'Descargar una copia CSV de la base sincronizada'; actions.append(exportButton);
@@ -447,6 +451,7 @@ if (teacherAgenda) {
   function prepareRecords(raw) { const records = raw.map((r, index) => { const status = field(r, /estado|situacion|condicion/i) || 'Pre-matriculado'; return { raw: r, index, name: field(r, /nombre completo/i) || 'Sin nombre', id: field(r, /cedula|documento de identidad/i), email: field(r, /correo electr/i), phone: field(r, /telefono principal/i), specialty: normalizeSpecialty(field(r, /especialidad.*matricular/i)), status, province: field(r, /provincia/i), canton: field(r, /canton/i), timestamp: field(r, /marca temporal/i), syncId: field(r, /id de sincronización/i), isNew: /pre.?matriculad|nuevo/i.test(status) }; }); const groups = {}; records.forEach(r => { const key = (r.id || r.name).toLowerCase().replace(/\s+/g, ' ').trim(); (groups[key] ||= []).push(r); }); records.forEach(r => { const key = (r.id || r.name).toLowerCase().replace(/\s+/g, ' ').trim(), group = groups[key] || []; r.duplicateSpecialties = [...new Set(group.map(x => x.specialty))]; r.duplicate = group.length > 1; }); return records; }
   let remoteRequestInFlight = false;
   let remoteRequestToken = 0;
+  let lastRemoteSnapshot = '';
   function loadRemoteTeacherDatabase() {
     if (!SYNC_ENDPOINT || SYNC_ENDPOINT.includes('PASTE_')) return;
     if (remoteRequestInFlight) return;
@@ -456,6 +461,16 @@ if (teacherAgenda) {
     window[callback] = payload => {
       if (!payload?.ok || !Array.isArray(payload.rows) || requestToken !== remoteRequestToken) { remoteRequestInFlight = false; delete window[callback]; return; }
       const headers = payload.headers || [];
+      const snapshot = JSON.stringify([headers, payload.rows]);
+      // La consulta automática no vuelve a pintar nada si la fuente no cambió.
+      // Así se evita el efecto visual de «recarga» mientras se revisa una ficha.
+      if (snapshot === lastRemoteSnapshot) {
+        remoteRequestInFlight = false;
+        delete window[callback];
+        script.remove();
+        return;
+      }
+      lastRemoteSnapshot = snapshot;
       const raw = payload.rows.map(row => Object.fromEntries(headers.map((header, index) => [header, row[index] || ''])));
       if (Array.isArray(payload.appointments)) {
         saveAppointments([...getAppointments(), ...payload.appointments]);
@@ -512,7 +527,12 @@ if (teacherAgenda) {
     $('#db-duplicates').textContent = duplicateCount;
     updateDatabaseCounters();
     $('#db-source').textContent = csvState.records.length ? `Base cargada en este dispositivo · filtro: ${activeFilter}${search ? ` · búsqueda: ${csvState.search.trim()}` : ''}` : 'Importá la base CSV desde este dispositivo para ver prematrícula y matrícula. La información no se publica.';
-    $('#csv-table-body').innerHTML = rows.length ? rows.map(r => `<tr class="${r.duplicate ? 'is-duplicate' : ''}"><td><b>${escapeHtml(r.name)}</b><details><summary>Ver todos los datos</summary><dl>${Object.entries(r.raw).map(([k, v]) => `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v || '—')}</dd>`).join('')}</dl></details></td><td>${escapeHtml(r.id || '—')}</td><td>${escapeHtml(r.specialty)}</td><td><a href="mailto:${encodeURIComponent(r.email)}">${escapeHtml(r.email || '—')}</a><small>${escapeHtml(r.phone || '')}</small></td><td><span class="new-status-badge">${escapeHtml(r.isNew ? 'NUEVO · PREMATRICULADO' : (r.status || 'Registrado'))}</span><small class="record-timestamp">${escapeHtml(r.timestamp || 'Fecha no disponible')}</small></td><td>${r.duplicate ? `<span class="duplicate-badge">Duplicado en: ${escapeHtml(r.duplicateSpecialties.join(', '))}</span>` : '<span class="ok-badge">Registro único</span>'}</td><td><button class="table-action" data-record="${r.index}" type="button">Agendar</button>${teacherAccess.role === 'admin' ? `<button class="table-delete database-delete" data-record-delete="${r.index}" type="button">Eliminar</button>` : ''}</td></tr>`).join('') : '<tr><td colspan="7">No hay registros para esta búsqueda o especialidad.</td></tr>';
+    $('#csv-table-body').innerHTML = rows.length ? rows.map(r => { const viewKey = recordViewKey(r); return `<tr class="${r.duplicate ? 'is-duplicate' : ''}"><td><b>${escapeHtml(r.name)}</b><details class="record-details" data-detail-key="${escapeHtml(viewKey)}"${expandedRecordKeys.has(viewKey) ? ' open' : ''}><summary>Ver todos los datos</summary><dl>${Object.entries(r.raw).map(([k, v]) => `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v || '—')}</dd>`).join('')}</dl></details></td><td>${escapeHtml(r.id || '—')}</td><td>${escapeHtml(r.specialty)}</td><td><a href="mailto:${encodeURIComponent(r.email)}">${escapeHtml(r.email || '—')}</a><small>${escapeHtml(r.phone || '')}</small></td><td><span class="new-status-badge">${escapeHtml(r.isNew ? 'NUEVO · PREMATRICULADO' : (r.status || 'Registrado'))}</span><small class="record-timestamp">${escapeHtml(r.timestamp || 'Fecha no disponible')}</small></td><td>${r.duplicate ? `<span class="duplicate-badge">Duplicado en: ${escapeHtml(r.duplicateSpecialties.join(', '))}</span>` : '<span class="ok-badge">Registro único</span>'}</td><td><button class="table-action" data-record="${r.index}" type="button">Agendar</button>${teacherAccess.role === 'admin' ? `<button class="table-delete database-delete" data-record-delete="${r.index}" type="button">Eliminar</button>` : ''}</td></tr>`; }).join('') : '<tr><td colspan="7">No hay registros para esta búsqueda o especialidad.</td></tr>';
+    $$('.record-details', db).forEach(details => details.addEventListener('toggle', () => {
+      const key = details.dataset.detailKey;
+      if (!key) return;
+      if (details.open) expandedRecordKeys.add(key); else expandedRecordKeys.delete(key);
+    }));
     $$('.table-action', db).forEach(btn => btn.addEventListener('click', () => { const r = csvState.records.find(x => x.index === Number(btn.dataset.record)); if (!r || (allowedTeacherSpecialty() && r.specialty !== allowedTeacherSpecialty())) return; $('#teacher-candidate').value = r.name; $('#teacher-candidate-email').value = r.email; $('#teacher-candidate-contact').value = r.phone; $('#teacher-specialty').value = r.specialty; teacherAgenda.scrollIntoView({ behavior: 'smooth', block: 'center' }); }));
     $$('.database-delete', db).forEach(btn => btn.addEventListener('click', () => {
       if (teacherAccess.role !== 'admin') return;
