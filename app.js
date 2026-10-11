@@ -476,7 +476,9 @@ function applyTeacherAccess() {
   if (!admin) {
     // Limpieza defensiva para evitar que un control de otra sesión permanezca
     // en pantalla durante el cambio de rol o al cerrar sesión.
-    $$('.table-delete, .database-delete, .appointment-delete', teacherDashboard).forEach(button => button.remove());
+    // Buscar en todo el documento, no solo dentro del panel activo: esto
+    // también limpia controles que una vista anterior haya dejado montados.
+    $$('.table-delete, .database-delete, .appointment-delete').forEach(button => button.remove());
   }
   const roleLabel = $('.dashboard-head b', teacherDashboard);
   if (roleLabel) roleLabel.textContent = admin ? 'Portal docente · Administrador' : `Portal docente · ${specialty}`;
