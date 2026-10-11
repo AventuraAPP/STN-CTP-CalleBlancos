@@ -328,7 +328,52 @@ renderPosts();
 
 function getStudents() { return JSON.parse(localStorage.getItem('stn-students') || '[]'); }
 function getDocs() { return JSON.parse(localStorage.getItem('stn-documents') || '[]'); }
-function getAppointments() { return JSON.parse(localStorage.getItem('stn-appointments') || '[]'); }
+
+// Respaldo histórico de citas que se habían agendado antes de que la agenda
+// quedara sincronizada en la base remota. Se conserva en el repositorio para
+// que una limpieza de caché o una nueva computadora no borre el historial.
+// Solo se incluyen datos completos que fueron verificados en el historial
+// operativo de la STN; no se inventan reservas que no tengan fecha y hora.
+let HISTORICAL_APPOINTMENTS = Object.freeze([
+  {
+    id: 'historical-candy-paola-20261012-1800',
+    specialty: 'Mantenimiento de Sistemas de Aire Acondicionado Industrial',
+    type: 'Examen de admisión',
+    date: '2026-10-12',
+    time: '6:00 p. m.',
+    name: 'Candy Paola Martínez',
+    email: 'candypaolamartinez2705@hotmail.com',
+    professor: 'Roy Brenes Navarro',
+    professorPhone: '6195-5775',
+    restored: true,
+    restoredLabel: 'Cita histórica recuperada'
+  }
+]);
+fetch('data/citas-historicas-2026.json?v=20261011', { cache: 'no-store' }).then(response => response.ok ? response.json() : []).then(rows => {
+  if (!Array.isArray(rows) || !rows.length) return;
+  HISTORICAL_APPOINTMENTS = Object.freeze(rows.filter(row => row && row.id && row.date && row.time));
+  updateDashboard();
+}).catch(() => { /* El respaldo embebido mantiene disponible la cita verificada. */ });
+const DELETED_APPOINTMENTS_KEY = 'stn-deleted-appointments';
+function readDeletedAppointmentKeys() {
+  try {
+    const value = JSON.parse(localStorage.getItem(DELETED_APPOINTMENTS_KEY) || '[]');
+    return Array.isArray(value) ? new Set(value) : new Set();
+  } catch (_) { return new Set(); }
+}
+function getAppointments() {
+  let stored = [];
+  try { stored = JSON.parse(localStorage.getItem('stn-appointments') || '[]'); } catch (_) { stored = []; }
+  const deleted = readDeletedAppointmentKeys();
+  const candidates = [...HISTORICAL_APPOINTMENTS, ...(Array.isArray(stored) ? stored : [])];
+  const unique = [];
+  const seen = new Set();
+  candidates.forEach(appointment => {
+    const key = appointmentKey(appointment);
+    if (!deleted.has(key) && !seen.has(key)) { seen.add(key); unique.push(appointment); }
+  });
+  return unique;
+}
 function appointmentKey(appointment) {
   return appointment.id || [appointment.date, appointment.time, appointment.email, appointment.name, appointment.specialty].map(value => String(value || '').trim().toLowerCase()).join('|');
 }
@@ -352,7 +397,7 @@ async function syncAppointmentToRemote(appointment) {
 
 const appointmentsPanel = $('#teacher-appointments');
 if (appointmentsPanel && !$('#appointment-specialty-summary')) appointmentsPanel.insertAdjacentHTML('afterbegin', '<div class="appointments-heading"><div><span class="eyebrow"><span></span> Agenda institucional</span><h3 id="appointments-title">Todas las citas reservadas</h3><p>Vista consolidada de entrevistas y exámenes por departamento técnico.</p></div><span class="appointments-live">● Agenda activa</span></div><div class="appointment-specialty-summary" id="appointment-specialty-summary"></div>');
-function renderAppointments(filter = 'Todas') { const admin = teacherAccess.role === 'admin', activeFilter = allowedTeacherSpecialty() || (admin ? 'Todas' : filter), allAppointments = getAppointments(), list = allAppointments.filter(a => activeFilter === 'Todas' || a.specialty === activeFilter); const title = $('#appointments-title'); if (title) title.textContent = admin ? 'Todas las citas reservadas' : `Citas de ${activeFilter}`; const summary = $('#appointment-specialty-summary'); if (summary) { const groups = {}; allAppointments.forEach(a => { groups[a.specialty || 'Sin especialidad'] = (groups[a.specialty || 'Sin especialidad'] || 0) + 1; }); summary.innerHTML = admin ? Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0])).map(([specialty, count]) => `<button class="appointment-specialty-card ${activeFilter === specialty ? 'active' : ''}" type="button" data-appointment-filter="${escapeHtml(specialty)}"><b>${count}</b><span>${escapeHtml(specialty)}</span></button>`).join('') : ''; $$('.appointment-specialty-card', summary).forEach(button => button.addEventListener('click', () => { renderAppointments(button.dataset.appointmentFilter); })); } $('#appointments-list').innerHTML = list.length ? list.map(a => `<div class="appointment-row"><div><b>${escapeHtml(a.name)}</b><small><span class="appointment-department">${escapeHtml(a.specialty || 'Sin especialidad')}</span> · ${escapeHtml(a.type)} · Prof. ${escapeHtml(a.professor || 'Por asignar')}</small></div><strong>${escapeHtml(a.date)} · ${escapeHtml(a.time)}</strong>${admin ? `<button class="appointment-delete" data-appointment-delete="${escapeHtml(appointmentKey(a))}" type="button">Eliminar</button>` : ''}</div>`).join('') : `<p>${admin ? 'No hay citas reservadas en los departamentos técnicos.' : 'No hay citas para esta especialidad.'}</p>`; $$('.appointment-delete').forEach(button => button.addEventListener('click', () => { if (teacherAccess.role !== 'admin') return; const target = getAppointments().find(a => appointmentKey(a) === button.dataset.appointmentDelete); if (!target || !window.confirm(`¿Confirmás eliminar la cita de ${target.name}?`)) return; saveAppointments(getAppointments().filter(a => appointmentKey(a) !== button.dataset.appointmentDelete)); updateDashboard(); renderAppointments(filter); })); }
+function renderAppointments(filter = 'Todas') { const admin = teacherAccess.role === 'admin', activeFilter = allowedTeacherSpecialty() || (admin ? 'Todas' : filter), allAppointments = getAppointments(), list = allAppointments.filter(a => activeFilter === 'Todas' || a.specialty === activeFilter); const title = $('#appointments-title'); if (title) title.textContent = admin ? 'Todas las citas reservadas' : `Citas de ${activeFilter}`; const summary = $('#appointment-specialty-summary'); if (summary) { const groups = {}; allAppointments.forEach(a => { groups[a.specialty || 'Sin especialidad'] = (groups[a.specialty || 'Sin especialidad'] || 0) + 1; }); summary.innerHTML = admin ? Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0])).map(([specialty, count]) => `<button class="appointment-specialty-card ${activeFilter === specialty ? 'active' : ''}" type="button" data-appointment-filter="${escapeHtml(specialty)}"><b>${count}</b><span>${escapeHtml(specialty)}</span></button>`).join('') : ''; $$('.appointment-specialty-card', summary).forEach(button => button.addEventListener('click', () => { renderAppointments(button.dataset.appointmentFilter); })); } $('#appointments-list').innerHTML = list.length ? list.map(a => `<div class="appointment-row ${a.restored ? 'appointment-restored' : ''}"><div><b>${escapeHtml(a.name)}</b><small><span class="appointment-department">${escapeHtml(a.specialty || 'Sin especialidad')}</span> · ${escapeHtml(a.type)} · Prof. ${escapeHtml(a.professor || 'Por asignar')}</small>${a.restoredLabel ? `<em class="appointment-restored-label">↻ ${escapeHtml(a.restoredLabel)}</em>` : ''}</div><strong>${escapeHtml(a.date)} · ${escapeHtml(a.time)}</strong>${admin ? `<button class="appointment-delete" data-appointment-delete="${escapeHtml(appointmentKey(a))}" type="button">Eliminar</button>` : ''}</div>`).join('') : `<p>${admin ? 'No hay citas reservadas en los departamentos técnicos.' : 'No hay citas para esta especialidad.'}</p>`; $$('.appointment-delete').forEach(button => button.addEventListener('click', () => { if (teacherAccess.role !== 'admin') return; const target = getAppointments().find(a => appointmentKey(a) === button.dataset.appointmentDelete); if (!target || !window.confirm(`¿Confirmás eliminar la cita de ${target.name}?`)) return; const key = appointmentKey(target); const deleted = readDeletedAppointmentKeys(); deleted.add(key); localStorage.setItem(DELETED_APPOINTMENTS_KEY, JSON.stringify([...deleted])); saveAppointments(getAppointments().filter(a => appointmentKey(a) !== key)); updateDashboard(); renderAppointments(filter); })); }
 function updateDashboard() {
   const students = getStudents(), docs = getDocs(), appointments = getAppointments();
   $('#pre-count').textContent = students.filter(s => s.status === 'Pre-matriculado').length; $('#mat-count').textContent = students.filter(s => s.status === 'Matriculado').length; $('#doc-count').textContent = docs.length; $('#appointment-count').textContent = appointments.length;
