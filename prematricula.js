@@ -6,6 +6,8 @@ function nativeRecordToRemotePayload(record) {
     syncId,
     name: record.name || '',
     fullName: record.name || '',
+    specialty: record.specialty || '',
+    technicalSpecialty: record.specialty || '',
     'ID de sincronización': syncId,
     'Marca temporal': record.createdAt || new Date().toISOString(),
     'Nombre completo y apellidos - Como aparece en la cédula': record.name || '',
