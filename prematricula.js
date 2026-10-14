@@ -59,17 +59,50 @@ async function flushPendingSync() {
   const remaining = [];
   for (const record of pending) {
     try {
-      await fetch(SYNC_ENDPOINT, { method: 'POST', mode: 'no-cors', cache: 'no-store', keepalive: true, headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'create', ...nativeRecordToRemotePayload(record) }) });
-    } catch (_) {
-      try {
-        const beaconSent = navigator.sendBeacon(SYNC_ENDPOINT, new Blob([JSON.stringify(nativeRecordToRemotePayload(record))], { type: 'text/plain;charset=utf-8' }));
-        if (!beaconSent) remaining.push(record);
-      } catch (_) { remaining.push(record); }
-    }
+      await sendRecordToRemote(record);
+    } catch (_) { remaining.push(record); }
   }
   writePendingSync(remaining);
 }
-async function syncPrematriculaToRemote(record) { queuePendingSync(record); await flushPendingSync(); }
+const wait = milliseconds => new Promise(resolve => window.setTimeout(resolve, milliseconds));
+function requestRemoteSnapshot() {
+  return new Promise((resolve, reject) => {
+    if (!SYNC_ENDPOINT || SYNC_ENDPOINT.includes('PASTE_')) { reject(new Error('El servicio institucional no está configurado.')); return; }
+    const callback = `stnSyncCheck_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const script = document.createElement('script');
+    const cleanup = () => { window.clearTimeout(timer); delete window[callback]; script.remove(); };
+    const timer = window.setTimeout(() => { cleanup(); reject(new Error('La base institucional no respondió a tiempo.')); }, 10000);
+    window[callback] = payload => { cleanup(); payload?.ok ? resolve(payload) : reject(new Error(payload?.message || 'La base institucional rechazó la consulta.')); };
+    script.onerror = () => { cleanup(); reject(new Error('No fue posible contactar la base institucional.')); };
+    script.src = `${SYNC_ENDPOINT}?callback=${callback}&_=${Date.now()}`;
+    document.body.append(script);
+  });
+}
+function remotePayloadHasSyncId(payload, syncId) {
+  const headers = payload?.headers || [];
+  const idColumn = headers.findIndex(header => /id de sincronizaci[oó]n|syncid/i.test(String(header)));
+  return idColumn >= 0 && (payload.rows || []).some(row => String(row?.[idColumn] || '') === String(syncId));
+}
+async function waitForRemoteRecord(syncId) {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const snapshot = await requestRemoteSnapshot();
+    if (remotePayloadHasSyncId(snapshot, syncId)) return snapshot;
+    await wait(900);
+  }
+  throw new Error('La base institucional no confirmó el registro.');
+}
+async function sendRecordToRemote(record) {
+  if (!navigator.onLine) throw new Error('No hay conexión a Internet.');
+  const payload = JSON.stringify({ action: 'create', ...nativeRecordToRemotePayload(record) });
+  await fetch(SYNC_ENDPOINT, { method: 'POST', mode: 'no-cors', cache: 'no-store', keepalive: true, headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: payload });
+  return waitForRemoteRecord(record.syncId || record.createdAt);
+}
+async function syncPrematriculaToRemote(record) {
+  queuePendingSync(record);
+  await flushPendingSync();
+  const pending = readPendingSync().some(item => (item.syncId || item.createdAt) === (record.syncId || record.createdAt));
+  return { ok: !pending, pending };
+}
 window.addEventListener('online', flushPendingSync);
 setInterval(flushPendingSync, 30000);
 
@@ -79,23 +112,26 @@ form?.addEventListener('submit', async event => {
   event.preventDefault();
   const values = Object.fromEntries(new FormData(form).entries());
   const file = form.querySelector('[name="titleFile"]')?.files?.[0];
+  const submitButton = form.querySelector('[type="submit"]');
   let attachment = null;
   try { attachment = await readAttachmentForSync(file); }
   catch (error) { message.textContent = error.message; message.classList.add('error'); return; }
   const record = { ...values, titleFile: file?.name || '', status: 'Pre-matriculado', createdAt: new Date().toISOString(), syncId: (crypto.randomUUID?.() || `stn-${Date.now()}-${Math.random().toString(36).slice(2)}`) };
-  const records = JSON.parse(localStorage.getItem('stn-prematriculas') || '[]');
-  records.unshift(record);
-  localStorage.setItem('stn-prematriculas', JSON.stringify(records));
-  message.textContent = `✓ Prematrícula de ${values.name} registrada localmente. ${attachment ? 'Cargando documento adjunto…' : (navigator.onLine ? 'Sincronizando con la base institucional…' : 'Quedó en cola y se enviará al recuperar la conexión.')}`;
-  const remoteRecord = attachment ? { ...record, titleFileContent: attachment.base64, titleFileMime: attachment.mime } : record;
-  syncPrematriculaToRemote(remoteRecord).then(() => {
-    const pending = readPendingSync().some(item => item.createdAt === record.createdAt);
-    message.textContent = pending ? `✓ Prematrícula guardada; pendiente de sincronización para ${values.name}.` : `✓ Prematrícula registrada y enviada a la base institucional para ${values.name}${attachment ? ', con su documento adjunto' : ''}.`;
-  });
-  const students = JSON.parse(localStorage.getItem('stn-students') || '[]');
-  students.unshift({ name: values.name, contact: values.phone || values.email, specialty: values.specialty, status: 'Pre-matriculado', identification: values.identification, email: values.email });
-  localStorage.setItem('stn-students', JSON.stringify(students));
+  if (submitButton) submitButton.disabled = true;
+  message.textContent = 'Guardando y verificando la respuesta de la base institucional…';
   message.classList.remove('error');
-  form.reset();
-  window.opener?.postMessage({ type: 'stn-prematricula-saved', createdAt: record.createdAt }, window.location.origin);
+  const remoteRecord = attachment ? { ...record, titleFileContent: attachment.base64, titleFileMime: attachment.mime } : record;
+  try {
+    const result = await syncPrematriculaToRemote(remoteRecord);
+    if (!result?.ok) throw new Error('La base institucional no confirmó el registro.');
+    message.textContent = `✓ Prematrícula confirmada en la base institucional para ${values.name}${attachment ? ', con su documento adjunto' : ''}.`;
+    form.reset();
+    window.opener?.postMessage({ type: 'stn-prematricula-saved', createdAt: record.createdAt }, window.location.origin);
+  } catch (error) {
+    queuePendingSync(remoteRecord);
+    message.classList.add('error');
+    message.textContent = `No se confirmó la prematrícula en la base institucional. El envío quedó pendiente solo en este dispositivo: ${error.message || 'revisá la conexión e intentá de nuevo.'}`;
+  } finally {
+    if (submitButton) submitButton.disabled = false;
+  }
 });

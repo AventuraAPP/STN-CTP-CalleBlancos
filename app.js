@@ -82,6 +82,57 @@ function queuePendingSync(record) {
   const pending = readPendingSync();
   if (!pending.some(item => (item.syncId || item.createdAt) === (record.syncId || record.createdAt))) { pending.push(record); writePendingSync(pending); }
 }
+const wait = milliseconds => new Promise(resolve => window.setTimeout(resolve, milliseconds));
+function requestRemoteSnapshot() {
+  if (!SYNC_ENDPOINT || SYNC_ENDPOINT.includes('PASTE_')) return Promise.reject(new Error('El servicio institucional no está configurado.'));
+  const callback = `stnRemoteSnapshot_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    const finish = (value, error) => {
+      window.clearTimeout(timeout);
+      delete window[callback];
+      script.remove();
+      error ? reject(error) : resolve(value);
+    };
+    const timeout = window.setTimeout(() => finish(null, new Error('La base institucional no respondió.')), 12000);
+    window[callback] = payload => finish(payload);
+    script.onerror = () => finish(null, new Error('No fue posible consultar la base institucional.'));
+    script.src = `${SYNC_ENDPOINT}?callback=${callback}&_=${Date.now()}`;
+    document.body.append(script);
+  });
+}
+function remotePayloadHasSyncId(payload, syncId) {
+  const headers = Array.isArray(payload?.headers) ? payload.headers : [];
+  const syncIndex = headers.findIndex(header => /id\s*de\s*sincronizaci[oó]n/i.test(String(header)));
+  if (syncIndex < 0 || !syncId) return false;
+  return (payload.rows || []).some(row => String(row?.[syncIndex] || '') === String(syncId));
+}
+async function waitForRemoteRecord(syncId, timeout = 18000) {
+  const end = Date.now() + timeout;
+  while (Date.now() < end) {
+    try {
+      const payload = await requestRemoteSnapshot();
+      if (payload?.ok && remotePayloadHasSyncId(payload, syncId)) return true;
+    } catch (_) { /* se vuelve a intentar hasta agotar el tiempo */ }
+    await wait(1500);
+  }
+  return false;
+}
+async function sendRecordToRemote(record) {
+  if (!navigator.onLine) throw new Error('Sin conexión a Internet.');
+  const payload = { action: 'create', ...nativeRecordToRemotePayload(record) };
+  await fetch(SYNC_ENDPOINT, {
+    method: 'POST',
+    mode: 'no-cors',
+    cache: 'no-store',
+    keepalive: true,
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  });
+  const confirmed = await waitForRemoteRecord(payload.syncId);
+  if (!confirmed) throw new Error('No fue posible confirmar el registro en la base institucional.');
+  return true;
+}
 async function flushPendingSync() {
   if (!SYNC_ENDPOINT || SYNC_ENDPOINT.includes('PASTE_') || !navigator.onLine) return;
   const pending = readPendingSync();
@@ -89,17 +140,17 @@ async function flushPendingSync() {
   const remaining = [];
   for (const record of pending) {
     try {
-      await fetch(SYNC_ENDPOINT, { method: 'POST', mode: 'no-cors', cache: 'no-store', keepalive: true, headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'create', ...nativeRecordToRemotePayload(record) }) });
-    } catch (_) {
-      try {
-        const beaconSent = navigator.sendBeacon(SYNC_ENDPOINT, new Blob([JSON.stringify(nativeRecordToRemotePayload(record))], { type: 'text/plain;charset=utf-8' }));
-        if (!beaconSent) remaining.push(record);
-      } catch (_) { remaining.push(record); }
-    }
+      await sendRecordToRemote(record);
+    } catch (_) { remaining.push(record); }
   }
   writePendingSync(remaining);
 }
-async function syncPrematriculaToRemote(record) { queuePendingSync(record); await flushPendingSync(); }
+async function syncPrematriculaToRemote(record) {
+  queuePendingSync(record);
+  await flushPendingSync();
+  const pending = readPendingSync().some(item => (item.syncId || item.createdAt) === (record.syncId || record.createdAt));
+  return { ok: !pending, pending };
+}
 window.addEventListener('online', flushPendingSync);
 setInterval(flushPendingSync, 30000);
 
@@ -469,6 +520,56 @@ function installPrematriculaPanel() {
   $('#close-prematricula', panel).addEventListener('click', () => panel.classList.add('hidden'));
   $('#native-prematricula-form', panel).addEventListener('submit', async event => { event.preventDefault(); const form = event.currentTarget, values = Object.fromEntries(new FormData(form).entries()), file = form.querySelector('[name="titleFile"]')?.files?.[0], statusMessage = $('#native-prematricula-message', panel); let attachment = null; try { attachment = await readAttachmentForSync(file); } catch (error) { statusMessage.textContent = error.message; statusMessage.classList.add('error'); return; } const record = { ...values, titleFile: file?.name || '', status: values.status || 'Pre-matriculado', createdAt: new Date().toISOString(), syncId: (crypto.randomUUID?.() || `stn-${Date.now()}-${Math.random().toString(36).slice(2)}`) }; const records = JSON.parse(localStorage.getItem('stn-prematriculas') || '[]'); records.unshift(record); localStorage.setItem('stn-prematriculas', JSON.stringify(records)); const students = getStudents(); students.unshift({ name: values.name, contact: values.phone || values.email, specialty: values.specialty, status: record.status, identification: values.identification, email: values.email }); localStorage.setItem('stn-students', JSON.stringify(students)); updateDashboard(); statusMessage.textContent = `✓ Todos los datos de ${values.name} fueron guardados en el sistema. ${attachment ? 'Cargando el documento adjunto de forma segura…' : 'Sincronizando con la base institucional…'}`; statusMessage.classList.remove('error'); const remoteRecord = attachment ? { ...record, titleFileContent: attachment.base64, titleFileMime: attachment.mime } : record; syncPrematriculaToRemote(remoteRecord).then(() => { const pending = readPendingSync().some(item => item.createdAt === record.createdAt); statusMessage.textContent = pending ? `✓ Datos guardados para ${values.name}. Quedaron pendientes de sincronización y se reintentará automáticamente.` : `✓ Confirmado: todos los datos de ${values.name}${attachment ? ' y su archivo adjunto' : ''} fueron guardados y enviados a la base institucional.`; setTimeout(() => loadTeacherDatabaseForSession?.(), 2500); }); form.reset(); });
   $('#native-prematricula-form', panel).addEventListener('submit', () => setTimeout(() => { const saved = JSON.parse(localStorage.getItem('stn-prematriculas') || '[]')[0]; if (saved) window.dispatchEvent(new CustomEvent('stn-prematricula-saved', { detail: saved })); }, 0));
+  // Este controlador se ejecuta antes del antiguo flujo local. Un registro solo
+  // se confirma cuando la fuente institucional remota devuelve su sincronización.
+  const nativeForm = $('#native-prematricula-form', panel);
+  if (nativeForm && !nativeForm.dataset.remoteSyncGuard) {
+    nativeForm.dataset.remoteSyncGuard = 'true';
+    nativeForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (nativeForm.dataset.submitting === 'true') return;
+      const statusMessage = $('#native-prematricula-message', panel);
+      const submitButton = $('button[type="submit"]', nativeForm);
+      const values = Object.fromEntries(new FormData(nativeForm).entries());
+      const file = nativeForm.querySelector('[name="titleFile"]')?.files?.[0];
+      let attachment = null;
+      try {
+        attachment = await readAttachmentForSync(file);
+        nativeForm.dataset.submitting = 'true';
+        if (submitButton) submitButton.disabled = true;
+        statusMessage.classList.remove('error');
+        statusMessage.textContent = 'Guardando y verificando la respuesta de la base institucional…';
+        const record = {
+          ...values,
+          titleFile: file?.name || '',
+          status: values.status || 'Pre-matriculado',
+          createdAt: new Date().toISOString(),
+          syncId: crypto.randomUUID?.() || `stn-${Date.now()}-${Math.random().toString(36).slice(2)}`
+        };
+        const remoteRecord = attachment ? { ...record, titleFileContent: attachment.base64, titleFileMime: attachment.mime } : record;
+        const result = await syncPrematriculaToRemote(remoteRecord);
+        if (!result?.ok) throw new Error('La base institucional no confirmó el registro.');
+        statusMessage.textContent = `✓ Confirmado: todos los datos de ${values.name} fueron guardados en la base institucional.`;
+        nativeForm.reset();
+        window.setTimeout(() => loadTeacherDatabaseForSession?.(), 500);
+      } catch (error) {
+        const fallback = {
+          ...values,
+          titleFile: file?.name || '',
+          status: values.status || 'Pre-matriculado',
+          createdAt: new Date().toISOString(),
+          syncId: crypto.randomUUID?.() || `stn-${Date.now()}-${Math.random().toString(36).slice(2)}`
+        };
+        queuePendingSync(fallback);
+        statusMessage.classList.add('error');
+        statusMessage.textContent = `No se confirmó el registro en la base institucional. Se mantuvo como envío pendiente en este dispositivo: ${error.message || 'revisá la conexión e intentá de nuevo.'}`;
+      } finally {
+        delete nativeForm.dataset.submitting;
+        if (submitButton) submitButton.disabled = false;
+      }
+    }, true);
+  }
   if (localStorage.getItem('stn-prematriculas')) window.dispatchEvent(new CustomEvent('stn-prematricula-saved'));
 }
 function applyTeacherAccess() {
@@ -575,8 +676,7 @@ if (teacherAgenda) {
     try {
       const response = await fetch('data/base-datos-2026.csv?v=20261011-database-145', { cache: 'no-store' });
       if (!response.ok) throw new Error('Respaldo no disponible');
-      const deletedKeys = getDeletedRecordKeys();
-      csvState.records.splice(0, csvState.records.length, ...prepareRecords(csvParse(await response.text())).filter(record => shouldDisplayRecoveredRecord(record, deletedKeys)));
+      csvState.records.splice(0, csvState.records.length, ...prepareRecords(csvParse(await response.text())));
       backupDatabaseLoaded = true;
       renderDatabase();
       $('#db-source').textContent = `Respaldo institucional recuperado · ${csvState.records.length} registros · reconectando con la base en línea…`;
@@ -611,15 +711,14 @@ if (teacherAgenda) {
         saveAppointments([...getAppointments(), ...payload.appointments]);
         updateDashboard();
       }
-      const deletedKeys = getDeletedRecordKeys();
-      const remoteRecords = prepareRecords(raw).filter(record => shouldDisplayRecoveredRecord(record, deletedKeys));
-      // Una respuesta remota parcial nunca debe reemplazar el respaldo verificado.
-      // Esto conserva registros recuperados como William Castillo Fuentes.
-      const recordsToDisplay = backupDatabaseLoaded && remoteRecords.length < csvState.records.length ? csvState.records : remoteRecords;
+      // La respuesta institucional es la fuente de verdad. Nunca se mezcla con
+      // copias de este navegador: así una eliminación confirmada no reaparece.
+      const recordsToDisplay = prepareRecords(raw);
       csvState.records.splice(0, csvState.records.length, ...recordsToDisplay);
       renderDatabase();
       updateDatabaseCounters();
-      $('#db-source').textContent = recordsToDisplay === csvState.records ? `Respaldo institucional conservado · ${csvState.records.length} registros · la respuesta remota llegó incompleta` : `Base sincronizada en tiempo real · ${csvState.records.length} registros · búsqueda en todos los campos`;
+      const synchronizedAt = payload.updatedAt || new Date().toLocaleString('es-CR');
+      $('#db-source').textContent = `Base institucional sincronizada · ${csvState.records.length} registros · última consulta: ${synchronizedAt}`;
       remoteRequestInFlight = false;
       delete window[callback];
       script.remove();
@@ -643,19 +742,19 @@ if (teacherAgenda) {
       // Cargar primero la copia CSV local (124) y después la remota (137) hacía que
       // el contador alternara en cada refresco y parecía que los registros regresaban.
       if (SYNC_ENDPOINT && !SYNC_ENDPOINT.includes('PASTE_')) {
-        $('#db-source').textContent = 'Cargando respaldo institucional y verificando la base en línea…';
-        // Mostrar de inmediato la copia verificada (145 registros) para que el
-        // docente no vea una tabla vacía mientras responde la sincronización.
-        restoreTeacherDatabaseBackup();
+        $('#db-source').textContent = 'Consultando la base institucional compartida…';
+        // No se muestran datos de una copia local mientras responde el servidor:
+        // la información visible debe ser idéntica en todos los dispositivos.
+        csvState.records.splice(0, csvState.records.length);
+        renderDatabase();
         loadRemoteTeacherDatabase();
         startTeacherDatabaseRefresh();
         return;
       }
       // Solo sin sincronización remota se muestra un respaldo local/importado.
       const imported = localStorage.getItem('stn-imported-csv');
-      const deletedKeys = getDeletedRecordKeys();
       const csvText = imported || await fetch('data/base-datos-2026.csv?v=20261011-database-145', { cache: 'no-store' }).then(r => r.ok ? r.text() : Promise.reject(new Error('Sin respaldo')));
-      csvState.records.splice(0, csvState.records.length, ...prepareRecords(csvParse(csvText)).filter(record => shouldDisplayRecoveredRecord(record, deletedKeys)));
+      csvState.records.splice(0, csvState.records.length, ...prepareRecords(csvParse(csvText)));
       renderDatabase();
       $('#db-source').textContent = `Respaldo local · ${csvState.records.length} registros · sin conexión al servicio institucional`;
     } catch (_) { $('#db-source').textContent = 'No fue posible cargar la base institucional.'; }
@@ -688,7 +787,7 @@ if (teacherAgenda) {
     $('#db-visible').textContent = rows.length;
     $('#db-duplicates').textContent = duplicateCount;
     updateDatabaseCounters();
-    $('#db-source').textContent = csvState.records.length ? `Base cargada en este dispositivo · filtro: ${activeFilter}${search ? ` · búsqueda: ${csvState.search.trim()}` : ''}` : 'Importá la base CSV desde este dispositivo para ver prematrícula y matrícula. La información no se publica.';
+    $('#db-source').textContent = csvState.records.length ? `Base institucional · filtro: ${activeFilter}${search ? ` · búsqueda: ${csvState.search.trim()}` : ''}` : 'Consultando la base institucional…';
     const uniqueDuplicates = [...new Map(rows.filter(r => r.duplicate && r.duplicateSpecialties.length > 1).map(r => [r.id || r.name, r])).values()];
     $('#teacher-duplicate-list').innerHTML = uniqueDuplicates.length
       ? `<div class="teacher-duplicate-head"><div><span>Revisión por especialidad</span><h3>Estudiantes registrados en más de una especialidad</h3><p>Verificá estos casos antes de programar entrevistas o exámenes.</p></div><b>${uniqueDuplicates.length}</b></div><div class="duplicate-list-grid">${uniqueDuplicates.map(r => `<article class="duplicate-card"><strong>${escapeHtml(r.name)}</strong><small>${escapeHtml(r.id || 'Identificación no registrada')}</small><div class="duplicate-card-specialties">${r.duplicateSpecialties.map(s => `<span>${escapeHtml(s)}</span>`).join('')}</div></article>`).join('')}</div>`
@@ -705,18 +804,18 @@ if (teacherAgenda) {
       const record = csvState.records.find(x => x.index === Number(btn.dataset.recordDelete));
       if (!record) return;
       if (!window.confirm(`¿Confirmás eliminar a ${record.name} de la base de datos? Esta acción no se puede deshacer.`)) return;
-      csvState.records = csvState.records.filter(item => item !== record);
-      const localRecords = JSON.parse(localStorage.getItem('stn-prematriculas') || '[]');
-      localStorage.setItem('stn-prematriculas', JSON.stringify(localRecords.filter(item => item.identification !== record.id || item.name !== record.name)));
-      // Guardar primero la marca local evita que una actualización en curso lo reincorpore.
-      rememberDeletedRecord(record);
+      btn.disabled = true;
+      btn.textContent = 'Eliminando…';
+      $('#db-source').textContent = 'Solicitando eliminación a la base institucional…';
       deletePrematriculaFromRemote(record).then(result => {
-        setTimeout(() => loadTeacherDatabaseForSession?.(), 1200);
-        $('#db-source').textContent = result?.ok
-          ? `Eliminación confirmada en la base institucional · verificando sincronización…`
-          : `No se pudo confirmar la eliminación en la base institucional. Intentá de nuevo.`;
+        if (!result?.ok) throw new Error(result?.message || 'El servidor no confirmó la eliminación.');
+        $('#db-source').textContent = 'Eliminación confirmada en la base institucional · actualizando datos…';
+        window.setTimeout(() => loadTeacherDatabaseForSession?.(), 500);
+      }).catch(error => {
+        btn.disabled = false;
+        btn.textContent = 'Eliminar';
+        $('#db-source').textContent = `No se pudo confirmar la eliminación: ${error.message || 'intentá de nuevo.'}`;
       });
-      renderDatabase();
     }));
   }
   $('#student-search').addEventListener('input', e => { csvState.search = e.target.value; renderDatabase(); });
