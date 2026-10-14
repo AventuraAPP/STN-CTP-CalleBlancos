@@ -119,13 +119,24 @@ async function waitForRemoteRecord(syncId, timeout = 18000) {
   return false;
 }
 async function waitForRemoteDeletion(record, timeout = 18000) {
-  const syncId = record.syncId || record.raw?.['ID de sincronización'] || record.timestamp || '';
-  if (!syncId) return false;
+  const syncId = record.syncId || record.raw?.['ID de sincronización'] || '';
+  const timestamp = record.timestamp || record.raw?.['Marca temporal'] || '';
+  if (!syncId && !timestamp) return false;
   const end = Date.now() + timeout;
   while (Date.now() < end) {
     try {
       const payload = await requestRemoteSnapshot();
-      if (payload?.ok && !remotePayloadHasSyncId(payload, syncId)) return true;
+      if (payload?.ok) {
+        const headers = Array.isArray(payload.headers) ? payload.headers : [];
+        const syncIndex = headers.findIndex(header => /id\s*de\s*sincronizaci[oó]n/i.test(String(header)));
+        const timestampIndex = headers.findIndex(header => /marca temporal/i.test(String(header)));
+        const stillPresent = (payload.rows || []).some(row => {
+          const sameSync = syncId && syncIndex >= 0 && String(row?.[syncIndex] || '') === String(syncId);
+          const sameTimestamp = timestamp && timestampIndex >= 0 && String(row?.[timestampIndex] || '') === String(timestamp);
+          return sameSync || sameTimestamp;
+        });
+        if (!stillPresent) return true;
+      }
     } catch (_) { /* se vuelve a intentar hasta agotar el tiempo */ }
     await wait(1500);
   }
@@ -169,11 +180,13 @@ setInterval(flushPendingSync, 30000);
 
 async function deletePrematriculaFromRemote(record) {
   if (!SYNC_ENDPOINT || SYNC_ENDPOINT.includes('PASTE_')) return { ok: false, error: 'Servicio no configurado.' };
-  const syncId = record.syncId || record.raw?.['ID de sincronización'] || record.timestamp || '';
+  const syncId = record.syncId || record.raw?.['ID de sincronización'] || '';
+  const timestamp = record.timestamp || record.raw?.['Marca temporal'] || '';
   const params = new URLSearchParams({
     action: 'delete',
     syncId,
     recordId: syncId,
+    timestamp,
     identification: record.id || '',
     name: record.name || '',
     specialty: record.specialty || '',
