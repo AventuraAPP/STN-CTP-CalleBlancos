@@ -693,35 +693,39 @@ if (teacherAgenda) {
     let responseTimer;
     window[callback] = payload => {
       window.clearTimeout(responseTimer);
-      if (!payload?.ok || !Array.isArray(payload.rows) || requestToken !== remoteRequestToken) { remoteRequestInFlight = false; delete window[callback]; script.remove(); return; }
-      const headers = payload.headers || [];
-      const snapshot = JSON.stringify([headers, payload.rows]);
-      // La consulta automática no vuelve a pintar nada si la fuente no cambió.
-      // Así se evita el efecto visual de «recarga» mientras se revisa una ficha.
-      if (snapshot === lastRemoteSnapshot) {
+      try {
+        if (!payload?.ok || !Array.isArray(payload.rows) || requestToken !== remoteRequestToken) return;
+        const headers = payload.headers || [];
+        const snapshot = JSON.stringify([headers, payload.rows]);
+        // La consulta automática no vuelve a pintar nada si la fuente no cambió.
+        // Así se evita el efecto visual de «recarga» mientras se revisa una ficha.
+        if (snapshot === lastRemoteSnapshot) return;
+        lastRemoteSnapshot = snapshot;
+        remoteDatabaseAvailable = true;
+        const raw = payload.rows.map(row => Object.fromEntries(headers.map((header, index) => [header, row[index] || ''])));
+        if (Array.isArray(payload.appointments)) {
+          saveAppointments([...getAppointments(), ...payload.appointments]);
+          updateDashboard();
+        }
+        // La respuesta institucional es la fuente de verdad. Nunca se mezcla con
+        // copias de este navegador: así una eliminación confirmada no reaparece.
+        const recordsToDisplay = prepareRecords(raw);
+        csvState.records.splice(0, csvState.records.length, ...recordsToDisplay);
+        renderDatabase();
+        updateDatabaseCounters();
+        const synchronizedAt = payload.updatedAt || new Date().toLocaleString('es-CR');
+        $('#db-source').textContent = `Base institucional sincronizada · ${csvState.records.length} registros · última consulta: ${synchronizedAt}`;
+      } catch (error) {
+        // Nunca dejar la pantalla en una carga infinita: se informa el fallo y
+        // se evita mostrar una copia local que pueda estar desactualizada.
+        csvState.records.splice(0, csvState.records.length);
+        renderDatabase();
+        $('#db-source').textContent = `No se pudo procesar la respuesta institucional: ${error?.message || 'error desconocido'}. Usá “Actualizar base” para reintentar.`;
+      } finally {
         remoteRequestInFlight = false;
         delete window[callback];
         script.remove();
-        return;
       }
-      lastRemoteSnapshot = snapshot;
-      remoteDatabaseAvailable = true;
-      const raw = payload.rows.map(row => Object.fromEntries(headers.map((header, index) => [header, row[index] || ''])));
-      if (Array.isArray(payload.appointments)) {
-        saveAppointments([...getAppointments(), ...payload.appointments]);
-        updateDashboard();
-      }
-      // La respuesta institucional es la fuente de verdad. Nunca se mezcla con
-      // copias de este navegador: así una eliminación confirmada no reaparece.
-      const recordsToDisplay = prepareRecords(raw);
-      csvState.records.splice(0, csvState.records.length, ...recordsToDisplay);
-      renderDatabase();
-      updateDatabaseCounters();
-      const synchronizedAt = payload.updatedAt || new Date().toLocaleString('es-CR');
-      $('#db-source').textContent = `Base institucional sincronizada · ${csvState.records.length} registros · última consulta: ${synchronizedAt}`;
-      remoteRequestInFlight = false;
-      delete window[callback];
-      script.remove();
     };
     const script = document.createElement('script');
     script.src = `${SYNC_ENDPOINT}?callback=${callback}&_=${Date.now()}`;
