@@ -736,7 +736,9 @@ if (teacherAgenda) {
       renderDatabase();
       $('#db-source').textContent = 'No fue posible consultar la base institucional. No se muestran datos sin una confirmación remota.';
     };
-    responseTimer = window.setTimeout(recoverFromUnavailableRemote, 9000);
+    // Google Apps Script puede tardar más de 9 s al iniciar o bajo carga.
+    // No se cancela la consulta antes de recibir la respuesta institucional.
+    responseTimer = window.setTimeout(recoverFromUnavailableRemote, 45000);
     script.onerror = () => { window.clearTimeout(responseTimer); recoverFromUnavailableRemote(); };
     document.body.append(script);
   }
@@ -766,7 +768,10 @@ if (teacherAgenda) {
   loadTeacherDatabaseForSession = loadTeacherDatabase;
   if (teacherAccess.role) loadTeacherDatabaseForSession();
   let teacherDatabaseTimer;
-  function startTeacherDatabaseRefresh() { if (!teacherDatabaseTimer) teacherDatabaseTimer = setInterval(loadRemoteTeacherDatabase, 10000); }
+  // Un intervalo corto podía superponerse con una consulta de Apps Script y
+  // provocar que la interfaz quedara vacía. La actualización manual permanece
+  // inmediata; la automática se realiza cada minuto.
+  function startTeacherDatabaseRefresh() { if (!teacherDatabaseTimer) teacherDatabaseTimer = setInterval(loadRemoteTeacherDatabase, 60000); }
   function updateDatabaseCounters() { const pre = csvState.records.filter(r => !/matriculad[oa]/i.test(r.status) || /pre.?matriculad/i.test(r.status)).length, mat = csvState.records.filter(r => /matriculad[oa]/i.test(r.status) && !/pre.?matriculad/i.test(r.status)).length; const preCount = $('#pre-count'); const matCount = $('#mat-count'); if (preCount) preCount.textContent = pre; if (matCount) matCount.textContent = mat; }
   function normalizeSearchText(value) { return String(value ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\s-]+/g, ' ').trim(); }
   function renderRecordField(key, value) {
