@@ -688,62 +688,74 @@ if (teacherAgenda) {
     if (remoteRequestInFlight) return;
     remoteRequestInFlight = true;
     const requestToken = ++remoteRequestToken;
-    const callback = `stnReceiveTeacherDatabase_${Date.now()}`;
+    let settled = false;
     let responseTimer;
-    window[callback] = payload => {
+    let fallbackScript;
+    const finish = () => {
       window.clearTimeout(responseTimer);
-      try {
-        if (!payload?.ok || !Array.isArray(payload.rows) || requestToken !== remoteRequestToken) return;
-        const headers = payload.headers || [];
-        const snapshot = JSON.stringify([headers, payload.rows]);
-        // La consulta automática no vuelve a pintar nada si la fuente no cambió.
-        // Así se evita el efecto visual de «recarga» mientras se revisa una ficha.
-        if (snapshot === lastRemoteSnapshot) return;
-        lastRemoteSnapshot = snapshot;
-        remoteDatabaseAvailable = true;
-        const raw = payload.rows.map(row => Object.fromEntries(headers.map((header, index) => [header, row[index] || ''])));
-        if (Array.isArray(payload.appointments)) {
-          saveAppointments([...getAppointments(), ...payload.appointments]);
-          updateDashboard();
-        }
-        // La respuesta institucional es la fuente de verdad. Nunca se mezcla con
-        // copias de este navegador: así una eliminación confirmada no reaparece.
-        const recordsToDisplay = prepareRecords(raw);
-        csvState.records.splice(0, csvState.records.length, ...recordsToDisplay);
-        renderDatabase();
-        updateDatabaseCounters();
-        const synchronizedAt = payload.updatedAt || new Date().toLocaleString('es-CR');
-        $('#db-source').textContent = `Base institucional sincronizada · ${csvState.records.length} registros · última consulta: ${synchronizedAt}`;
-      } catch (error) {
-        // Nunca dejar la pantalla en una carga infinita: se informa el fallo y
-        // se evita mostrar una copia local que pueda estar desactualizada.
-        csvState.records.splice(0, csvState.records.length);
-        renderDatabase();
-        $('#db-source').textContent = `No se pudo procesar la respuesta institucional: ${error?.message || 'error desconocido'}. Usá “Actualizar base” para reintentar.`;
-      } finally {
-        remoteRequestInFlight = false;
-        delete window[callback];
-        script.remove();
-      }
-    };
-    const script = document.createElement('script');
-    script.src = `${SYNC_ENDPOINT}?callback=${callback}&_=${Date.now()}`;
-    const recoverFromUnavailableRemote = () => {
-      if (requestToken !== remoteRequestToken) return;
+      if (fallbackScript) fallbackScript.remove();
       remoteRequestInFlight = false;
-      delete window[callback];
-      script.remove();
-      // No se sustituye la fuente institucional con un CSV local: mostrar una
+    };
+    const fail = message => {
+      if (settled || requestToken !== remoteRequestToken) return;
+      settled = true;
+      finish();
+      // Nunca se sustituye la fuente institucional con un CSV local: mostrar una
       // copia antigua sería confuso y permitiría que datos eliminados reaparezcan.
       csvState.records.splice(0, csvState.records.length);
       renderDatabase();
-      $('#db-source').textContent = 'No fue posible consultar la base institucional. No se muestran datos sin una confirmación remota.';
+      $('#db-source').textContent = message;
     };
-    // Google Apps Script puede tardar más de 9 s al iniciar o bajo carga.
-    // No se cancela la consulta antes de recibir la respuesta institucional.
-    responseTimer = window.setTimeout(recoverFromUnavailableRemote, 45000);
-    script.onerror = () => { window.clearTimeout(responseTimer); recoverFromUnavailableRemote(); };
-    document.body.append(script);
+    const applyPayload = payload => {
+      if (settled || requestToken !== remoteRequestToken) return true;
+      if (!payload?.ok || !Array.isArray(payload.rows)) return false;
+      settled = true;
+      try {
+        const headers = payload.headers || [];
+        const snapshot = JSON.stringify([headers, payload.rows]);
+        // La consulta automática no vuelve a pintar nada si la fuente no cambió.
+        if (snapshot !== lastRemoteSnapshot) {
+          lastRemoteSnapshot = snapshot;
+          remoteDatabaseAvailable = true;
+          const raw = payload.rows.map(row => Object.fromEntries(headers.map((header, index) => [header, row[index] || ''])));
+          if (Array.isArray(payload.appointments)) {
+            saveAppointments([...getAppointments(), ...payload.appointments]);
+            updateDashboard();
+          }
+          const recordsToDisplay = prepareRecords(raw);
+          csvState.records.splice(0, csvState.records.length, ...recordsToDisplay);
+          renderDatabase();
+          updateDatabaseCounters();
+          const synchronizedAt = payload.updatedAt || new Date().toLocaleString('es-CR');
+          $('#db-source').textContent = `Base institucional sincronizada · ${csvState.records.length} registros · última consulta: ${synchronizedAt}`;
+        }
+      } catch (error) {
+        settled = false;
+        fail(`No se pudo procesar la respuesta institucional: ${error?.message || 'error desconocido'}.`);
+        return true;
+      }
+      finish();
+      return true;
+    };
+    const requestJsonpFallback = () => {
+      if (settled || requestToken !== remoteRequestToken) return;
+      const callback = `stnReceiveTeacherDatabase_${Date.now()}`;
+      fallbackScript = document.createElement('script');
+      window[callback] = payload => {
+        delete window[callback];
+        if (!applyPayload(payload)) fail('La base institucional respondió con un formato no válido.');
+      };
+      fallbackScript.src = `${SYNC_ENDPOINT}?callback=${callback}&_=${Date.now()}`;
+      fallbackScript.onerror = () => { delete window[callback]; fail('No fue posible consultar la base institucional.'); };
+      document.body.append(fallbackScript);
+    };
+    // Fetch con CORS funciona de forma consistente en Chrome, Edge, Firefox y Safari.
+    // JSONP queda como respaldo para redes que bloqueen solicitudes fetch.
+    responseTimer = window.setTimeout(() => fail('No fue posible consultar la base institucional. No se muestran datos sin confirmación remota.'), 45000);
+    fetch(`${SYNC_ENDPOINT}?_=${Date.now()}`, { cache: 'no-store', mode: 'cors', headers: { Accept: 'application/json' } })
+      .then(response => { if (!response.ok) throw new Error(`HTTP ${response.status}`); return response.json(); })
+      .then(payload => { if (!applyPayload(payload)) requestJsonpFallback(); })
+      .catch(() => requestJsonpFallback());
   }
   async function loadTeacherDatabase() {
     try {
