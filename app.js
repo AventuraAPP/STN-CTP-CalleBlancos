@@ -118,6 +118,19 @@ async function waitForRemoteRecord(syncId, timeout = 18000) {
   }
   return false;
 }
+async function waitForRemoteDeletion(record, timeout = 18000) {
+  const syncId = record.syncId || record.raw?.['ID de sincronización'] || record.timestamp || '';
+  if (!syncId) return false;
+  const end = Date.now() + timeout;
+  while (Date.now() < end) {
+    try {
+      const payload = await requestRemoteSnapshot();
+      if (payload?.ok && !remotePayloadHasSyncId(payload, syncId)) return true;
+    } catch (_) { /* se vuelve a intentar hasta agotar el tiempo */ }
+    await wait(1500);
+  }
+  return false;
+}
 async function sendRecordToRemote(record) {
   if (!navigator.onLine) throw new Error('Sin conexión a Internet.');
   const payload = { action: 'create', ...nativeRecordToRemotePayload(record) };
@@ -154,37 +167,37 @@ async function syncPrematriculaToRemote(record) {
 window.addEventListener('online', flushPendingSync);
 setInterval(flushPendingSync, 30000);
 
-function deletePrematriculaFromRemote(record) {
-  if (!SYNC_ENDPOINT || SYNC_ENDPOINT.includes('PASTE_')) return Promise.resolve({ ok: false, error: 'Servicio no configurado.' });
-  const callback = `stnDeleteRecord_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-  return new Promise(resolve => {
-    const script = document.createElement('script');
-    const finish = payload => {
-      delete window[callback];
-      script.remove();
-      resolve(payload || { ok: false, error: 'No se recibió confirmación.' });
-    };
-    window[callback] = finish;
-    const params = new URLSearchParams({
-      action: 'delete',
-      callback,
-      syncId: record.syncId || record.raw?.['ID de sincronización'] || record.timestamp || '',
-      recordId: record.syncId || record.raw?.['ID de sincronización'] || record.timestamp || '',
-      identification: record.id || '',
-      name: record.name || '',
-      specialty: record.specialty || '',
-      _: String(Date.now())
-    });
-    script.src = `${SYNC_ENDPOINT}?${params.toString()}`;
-    script.onerror = () => finish({ ok: false, error: 'No se pudo confirmar la eliminación.' });
-    document.body.append(script);
+async function deletePrematriculaFromRemote(record) {
+  if (!SYNC_ENDPOINT || SYNC_ENDPOINT.includes('PASTE_')) return { ok: false, error: 'Servicio no configurado.' };
+  const syncId = record.syncId || record.raw?.['ID de sincronización'] || record.timestamp || '';
+  const params = new URLSearchParams({
+    action: 'delete',
+    syncId,
+    recordId: syncId,
+    identification: record.id || '',
+    name: record.name || '',
+    specialty: record.specialty || '',
+    _: String(Date.now())
   });
+  let payload;
+  try {
+    const response = await fetch(`${SYNC_ENDPOINT}?${params.toString()}`, { cache: 'no-store', mode: 'cors', headers: { Accept: 'application/json' } });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    payload = await response.json();
+  } catch (error) {
+    return { ok: false, error: `No se pudo confirmar la eliminación: ${error.message || 'error de conexión'}.` };
+  }
+  const deleted = Number(payload?.deleted || 0);
+  if (!payload?.ok || deleted < 1) return { ok: false, error: 'El servidor no eliminó ningún registro. La fila permanece intacta.' };
+  const confirmedAbsent = await waitForRemoteDeletion(record);
+  if (!confirmedAbsent) return { ok: false, error: 'El servidor respondió, pero el registro todavía aparece en la base remota.' };
+  return { ok: true, deleted };
 }
 function canonicalDeletedValue(value) { return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); }
 function deletedRecordKey(record) { return `${canonicalDeletedValue(record.id)}|${canonicalDeletedValue(record.name)}`; }
 function deletedRecordKeys(record) { const id = canonicalDeletedValue(record.id), name = canonicalDeletedValue(record.name), legacy = `${String(record.id || '').trim().toLowerCase()}|${String(record.name || '').trim().toLowerCase()}`; return [...new Set(id ? [`${id}|${name}`, legacy] : [`|${name}`, legacy])]; }
 function isDeletedRecord(record, deletedKeys = getDeletedRecordKeys()) { return deletedRecordKeys(record).some(key => deletedKeys.has(key)); }
-function shouldDisplayRecoveredRecord(record, deletedKeys = getDeletedRecordKeys()) { const name = String(record?.name || record?.fullName || '').toLowerCase().replace(/\s+/g, ' ').trim(); return /william castillo fuentes/.test(name) || !isDeletedRecord(record, deletedKeys); }
+function shouldDisplayRecoveredRecord(record, deletedKeys = getDeletedRecordKeys()) { return !isDeletedRecord(record, deletedKeys); }
 function getDeletedRecordKeys() { try { return new Set(JSON.parse(localStorage.getItem('stn-deleted-records') || '[]')); } catch (_) { return new Set(); } }
 function rememberDeletedRecord(record) { const keys = [...getDeletedRecordKeys(), ...deletedRecordKeys(record)]; localStorage.setItem('stn-deleted-records', JSON.stringify([...new Set(keys)])); }
 
@@ -838,6 +851,7 @@ if (teacherAgenda) {
       $('#db-source').textContent = 'Solicitando eliminación a la base institucional…';
       deletePrematriculaFromRemote(record).then(result => {
         if (!result?.ok) throw new Error(result?.message || 'El servidor no confirmó la eliminación.');
+        rememberDeletedRecord(record);
         $('#db-source').textContent = 'Eliminación confirmada en la base institucional · actualizando datos…';
         window.setTimeout(() => loadTeacherDatabaseForSession?.(), 500);
       }).catch(error => {
