@@ -730,7 +730,11 @@ if (teacherAgenda) {
       remoteRequestInFlight = false;
       delete window[callback];
       script.remove();
-      restoreTeacherDatabaseBackup();
+      // No se sustituye la fuente institucional con un CSV local: mostrar una
+      // copia antigua sería confuso y permitiría que datos eliminados reaparezcan.
+      csvState.records.splice(0, csvState.records.length);
+      renderDatabase();
+      $('#db-source').textContent = 'No fue posible consultar la base institucional. No se muestran datos sin una confirmación remota.';
     };
     responseTimer = window.setTimeout(recoverFromUnavailableRemote, 9000);
     script.onerror = () => { window.clearTimeout(responseTimer); recoverFromUnavailableRemote(); };
