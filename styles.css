@@ -149,3 +149,5 @@
 @keyframes stn-marquee{from{transform:translateX(100%)}to{transform:translateX(-100%)}}@keyframes stn-message-emphasis{0%,100%{filter:brightness(1);letter-spacing:.008em}50%{filter:brightness(1.18);letter-spacing:.018em}}
 @media(max-width:650px){.ticker-copy{grid-column:1/-1;width:100%;padding:1px 0}.ticker-marquee{gap:48px;animation-duration:17s}.ticker-marquee strong{font-size:.96rem}.ticker-live{display:none}}
 @media(prefers-reduced-motion:reduce){.news-ticker:before,.ticker-live i,.ticker-marquee,.ticker-marquee strong{animation:none!important}.ticker-marquee{width:auto;min-width:0}.ticker-message-copy{display:none}}
+
+.report-actions #report-excel{border-color:#8de6b6;background:linear-gradient(135deg,#178354,#126746)}.report-actions #report-word{border-color:#9ac8ff;background:linear-gradient(135deg,#286fba,#1b4f98)}
