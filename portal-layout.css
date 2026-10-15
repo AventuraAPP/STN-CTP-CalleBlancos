@@ -3,6 +3,31 @@
   min-width: 220px;
 }
 
+/* La acción principal permanece visible al recorrer una tabla amplia. */
+.database-table-wrap {
+  position: relative;
+}
+
+.database-table th:last-child,
+.database-table td:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 3;
+  min-width: 126px;
+  background: #0d315f;
+  box-shadow: -12px 0 18px rgba(1, 16, 40, .22);
+}
+
+.database-table th:last-child {
+  z-index: 4;
+  background: #164c88;
+}
+
+.database-table .table-action {
+  min-width: 100px;
+  white-space: nowrap;
+}
+
 .database-table details[open] {
   position: relative;
   z-index: 12;
@@ -96,6 +121,7 @@
   .database-table tbody td,
   .database-table tbody td:first-child,
   .database-table tbody td:last-child {
+    position: static;
     display: grid;
     grid-template-columns: minmax(96px, .58fr) minmax(0, 1.42fr);
     gap: 8px;
@@ -105,6 +131,7 @@
     border: 0 !important;
     border-radius: 0 !important;
     overflow-wrap: anywhere;
+    box-shadow: none;
   }
 
   .database-table tbody td::before {
