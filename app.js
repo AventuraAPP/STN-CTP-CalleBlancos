@@ -4,6 +4,9 @@ const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector
 // Acceso por departamento para el Portal docente. En GitHub Pages este control
 // protege la interfaz, pero no sustituye un backend con autenticación real.
 const TEACHER_ADMIN_PASSWORD = 'RoyAdmSTN';
+// Perfil de consulta institucional: puede visualizar todas las especialidades,
+// exportar respaldos e informes, pero no alterar registros ni credenciales.
+const ADMINISTRATIVE_STAFF_PASSWORD = 'STNAdministrativo27!';
 // Endpoint público de Google Apps Script para sincronizar prematrículas,
 // consultar el panel docente y enviar confirmaciones por correo.
 const SYNC_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyyeomXgKMvXwOJsZq3bjx56tJ0hRpmZcKJ8V9OAUgAOZdDUOJvpVzyd8WLNEcgJCjE/exec';
@@ -24,6 +27,8 @@ const getDepartmentPasswords = () => {
   } catch (_) { return { ...DEPARTMENT_PASSWORDS }; }
 };
 const allowedTeacherSpecialty = () => teacherAccess.role === 'department' ? teacherAccess.specialty : null;
+const hasInstitutionalOverview = () => ['admin', 'administrative'].includes(teacherAccess.role);
+const canManageRecords = () => teacherAccess.role === 'admin';
 
 function nativeRecordToRemotePayload(record) {
   const syncId = record.syncId || record['ID de sincronización'] || record.createdAt || `${record.identification || ''}|${record.name || ''}|${record.specialty || ''}`;
@@ -483,7 +488,7 @@ async function syncAppointmentToRemote(appointment) {
 
 const appointmentsPanel = $('#teacher-appointments');
 if (appointmentsPanel && !$('#appointment-specialty-summary')) appointmentsPanel.insertAdjacentHTML('afterbegin', '<div class="appointments-heading"><div><span class="eyebrow"><span></span> Agenda institucional</span><h3 id="appointments-title">Todas las citas reservadas</h3><p>Vista consolidada de entrevistas y exámenes por departamento técnico.</p></div><span class="appointments-live">● Agenda activa</span></div><div class="appointment-specialty-summary" id="appointment-specialty-summary"></div>');
-function renderAppointments(filter = 'Todas') { const admin = teacherAccess.role === 'admin', activeFilter = allowedTeacherSpecialty() || (admin ? 'Todas' : filter), allAppointments = getAppointments(), list = allAppointments.filter(a => activeFilter === 'Todas' || a.specialty === activeFilter); const title = $('#appointments-title'); if (title) title.textContent = admin ? 'Todas las citas reservadas' : `Citas de ${activeFilter}`; const summary = $('#appointment-specialty-summary'); if (summary) { const groups = {}; allAppointments.forEach(a => { groups[a.specialty || 'Sin especialidad'] = (groups[a.specialty || 'Sin especialidad'] || 0) + 1; }); summary.innerHTML = admin ? Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0])).map(([specialty, count]) => `<button class="appointment-specialty-card ${activeFilter === specialty ? 'active' : ''}" type="button" data-appointment-filter="${escapeHtml(specialty)}"><b>${count}</b><span>${escapeHtml(specialty)}</span></button>`).join('') : ''; $$('.appointment-specialty-card', summary).forEach(button => button.addEventListener('click', () => { renderAppointments(button.dataset.appointmentFilter); })); } $('#appointments-list').innerHTML = list.length ? list.map(a => `<div class="appointment-row ${a.restored ? 'appointment-restored' : ''}"><div><b>${escapeHtml(a.name)}</b><small><span class="appointment-department">${escapeHtml(a.specialty || 'Sin especialidad')}</span> · ${escapeHtml(a.type)} · Prof. ${escapeHtml(a.professor || 'Por asignar')}</small>${a.restoredLabel ? `<em class="appointment-restored-label">↻ ${escapeHtml(a.restoredLabel)}</em>` : ''}</div><strong>${escapeHtml(a.date)} · ${escapeHtml(a.time)}</strong>${admin ? `<button class="appointment-delete" data-appointment-delete="${escapeHtml(appointmentKey(a))}" type="button">Eliminar</button>` : ''}</div>`).join('') : `<p>${admin ? 'No hay citas reservadas en los departamentos técnicos.' : 'No hay citas para esta especialidad.'}</p>`; $$('.appointment-delete').forEach(button => button.addEventListener('click', () => { if (teacherAccess.role !== 'admin') return; const target = getAppointments().find(a => appointmentKey(a) === button.dataset.appointmentDelete); if (!target || !window.confirm(`¿Confirmás eliminar la cita de ${target.name}?`)) return; const key = appointmentKey(target); const deleted = readDeletedAppointmentKeys(); deleted.add(key); localStorage.setItem(DELETED_APPOINTMENTS_KEY, JSON.stringify([...deleted])); saveAppointments(getAppointments().filter(a => appointmentKey(a) !== key)); updateDashboard(); renderAppointments(filter); })); }
+function renderAppointments(filter = 'Todas') { const admin = teacherAccess.role === 'admin', overview = hasInstitutionalOverview(), activeFilter = allowedTeacherSpecialty() || (overview ? 'Todas' : filter), allAppointments = getAppointments(), list = allAppointments.filter(a => activeFilter === 'Todas' || a.specialty === activeFilter); const title = $('#appointments-title'); if (title) title.textContent = overview ? 'Todas las citas reservadas' : `Citas de ${activeFilter}`; const summary = $('#appointment-specialty-summary'); if (summary) { const groups = {}; allAppointments.forEach(a => { groups[a.specialty || 'Sin especialidad'] = (groups[a.specialty || 'Sin especialidad'] || 0) + 1; }); summary.innerHTML = overview ? Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0])).map(([specialty, count]) => `<button class="appointment-specialty-card ${activeFilter === specialty ? 'active' : ''}" type="button" data-appointment-filter="${escapeHtml(specialty)}"><b>${count}</b><span>${escapeHtml(specialty)}</span></button>`).join('') : ''; $$('.appointment-specialty-card', summary).forEach(button => button.addEventListener('click', () => { renderAppointments(button.dataset.appointmentFilter); })); } $('#appointments-list').innerHTML = list.length ? list.map(a => `<div class="appointment-row ${a.restored ? 'appointment-restored' : ''}"><div><b>${escapeHtml(a.name)}</b><small><span class="appointment-department">${escapeHtml(a.specialty || 'Sin especialidad')}</span> · ${escapeHtml(a.type)} · Prof. ${escapeHtml(a.professor || 'Por asignar')}</small>${a.restoredLabel ? `<em class="appointment-restored-label">↻ ${escapeHtml(a.restoredLabel)}</em>` : ''}</div><strong>${escapeHtml(a.date)} · ${escapeHtml(a.time)}</strong>${admin ? `<button class="appointment-delete" data-appointment-delete="${escapeHtml(appointmentKey(a))}" type="button">Eliminar</button>` : ''}</div>`).join('') : `<p>${overview ? 'No hay citas reservadas en los departamentos técnicos.' : 'No hay citas para esta especialidad.'}</p>`; $$('.appointment-delete').forEach(button => button.addEventListener('click', () => { if (teacherAccess.role !== 'admin') return; const target = getAppointments().find(a => appointmentKey(a) === button.dataset.appointmentDelete); if (!target || !window.confirm(`¿Confirmás eliminar la cita de ${target.name}?`)) return; const key = appointmentKey(target); const deleted = readDeletedAppointmentKeys(); deleted.add(key); localStorage.setItem(DELETED_APPOINTMENTS_KEY, JSON.stringify([...deleted])); saveAppointments(getAppointments().filter(a => appointmentKey(a) !== key)); updateDashboard(); renderAppointments(filter); })); }
 function updateDashboard() {
   const students = getStudents(), docs = getDocs(), appointments = getAppointments();
   $('#pre-count').textContent = students.filter(s => s.status === 'Pre-matriculado').length; $('#mat-count').textContent = students.filter(s => s.status === 'Matriculado').length; $('#doc-count').textContent = docs.length; $('#appointment-count').textContent = appointments.length;
@@ -599,7 +604,7 @@ function installPrematriculaPanel() {
   if (localStorage.getItem('stn-prematriculas')) window.dispatchEvent(new CustomEvent('stn-prematricula-saved'));
 }
 function applyTeacherAccess() {
-  const admin = teacherAccess.role === 'admin', specialty = allowedTeacherSpecialty();
+  const admin = canManageRecords(), overview = hasInstitutionalOverview(), specialty = allowedTeacherSpecialty();
   if (!admin) {
     // Limpieza defensiva para evitar que un control de otra sesión permanezca
     // en pantalla durante el cambio de rol o al cerrar sesión.
@@ -608,16 +613,19 @@ function applyTeacherAccess() {
     $$('.table-delete, .database-delete, .appointment-delete').forEach(button => button.remove());
   }
   const roleLabel = $('.dashboard-head b', teacherDashboard);
-  if (roleLabel) roleLabel.textContent = admin ? 'Portal docente · Administrador' : `Portal docente · ${specialty}`;
-  $$('.specialty-tab', teacherDashboard).forEach(tab => { const visible = admin || tab.dataset.specialty === specialty; tab.classList.toggle('hidden', !visible); tab.classList.toggle('active', admin ? tab.dataset.specialty === 'Todas' : tab.dataset.specialty === specialty); });
+  if (roleLabel) roleLabel.textContent = admin ? 'Portal docente · Administrador' : (teacherAccess.role === 'administrative' ? 'Portal docente · Personal administrativo' : `Portal docente · ${specialty}`);
+  $$('.specialty-tab', teacherDashboard).forEach(tab => { const visible = overview || tab.dataset.specialty === specialty; tab.classList.toggle('hidden', !visible); tab.classList.toggle('active', overview ? tab.dataset.specialty === 'Todas' : tab.dataset.specialty === specialty); });
   const specialtySelect = $('#teacher-specialty');
   if (specialtySelect) { if (specialty) specialtySelect.value = specialty; specialtySelect.disabled = Boolean(specialty); }
   const csvImportControl = $('#csv-import-control');
   csvImportControl?.classList.toggle('hidden', !admin);
   const exportDatabaseControl = $('#export-database');
-  exportDatabaseControl?.classList.toggle('hidden', !admin);
+  exportDatabaseControl?.classList.toggle('hidden', !overview);
+  $('#reporting-controls')?.classList.toggle('hidden', !overview);
   adminPasswordToggle?.classList.toggle('hidden', !admin);
   if (!admin) { adminPasswordPanel?.classList.add('hidden'); adminPasswordToggle?.setAttribute('aria-expanded', 'false'); if (adminPasswordToggle) adminPasswordToggle.textContent = '▸ Contraseñas por departamento'; }
+  const adminOnlyNotice = $('#admin-only-notice');
+  if (adminOnlyNotice) adminOnlyNotice.classList.toggle('hidden', teacherAccess.role !== 'administrative');
   if (admin) renderAdminPasswords();
   renderAppointments(specialty || $('.specialty-tab.active')?.dataset.specialty || 'Todas');
 }
@@ -630,8 +638,8 @@ function enterTeacherPortal(role, specialty = null) {
   loadTeacherDatabaseForSession();
 }
 const setTeacherPortalState = active => { if (!teacherSection) return; teacherSection.classList.toggle('teacher-portal-active', active); teacherSection.style.gridTemplateColumns = active ? '1fr' : ''; const copy = teacherSection.querySelector('.teacher-copy'); const access = teacherSection.querySelector('.teacher-access'); const note = teacherSection.querySelector('.security-note'); if (active) { copy?.style.setProperty('grid-column', '1 / -1'); access?.style.setProperty('grid-column', '1 / -1'); note?.style.setProperty('grid-column', '1 / -1'); } else { copy?.style.removeProperty('grid-column'); access?.style.removeProperty('grid-column'); note?.style.removeProperty('grid-column'); } };
-teacherLogin?.addEventListener('submit', e => { e.preventDefault(); const message = $('#login-message'), password = $('#teacher-password')?.value || '', specialty = teacherDepartmentSelect.value, passwords = getDepartmentPasswords(); message.classList.remove('error'); if (password === TEACHER_ADMIN_PASSWORD) enterTeacherPortal('admin'); else if (passwords[specialty] === password) enterTeacherPortal('department', specialty); else { message.textContent = 'Contraseña incorrecta para este departamento.'; message.classList.add('error'); } });
-try { const saved = JSON.parse(sessionStorage.getItem('stn-teacher-session') || 'null'); if (saved?.role === 'admin' || (saved?.role === 'department' && teacherDepartmentNames.includes(saved.specialty))) enterTeacherPortal(saved.role, saved.specialty); } catch (_) { sessionStorage.removeItem('stn-teacher-session'); }
+teacherLogin?.addEventListener('submit', e => { e.preventDefault(); const message = $('#login-message'), password = $('#teacher-password')?.value || '', specialty = teacherDepartmentSelect.value, passwords = getDepartmentPasswords(); message.classList.remove('error'); if (password === TEACHER_ADMIN_PASSWORD) enterTeacherPortal('admin'); else if (password === ADMINISTRATIVE_STAFF_PASSWORD) enterTeacherPortal('administrative'); else if (passwords[specialty] === password) enterTeacherPortal('department', specialty); else { message.textContent = 'Contraseña incorrecta para este departamento.'; message.classList.add('error'); } });
+try { const saved = JSON.parse(sessionStorage.getItem('stn-teacher-session') || 'null'); if (saved?.role === 'admin' || saved?.role === 'administrative' || (saved?.role === 'department' && teacherDepartmentNames.includes(saved.specialty))) enterTeacherPortal(saved.role, saved.specialty); } catch (_) { sessionStorage.removeItem('stn-teacher-session'); }
 $('#logout')?.addEventListener('click', () => { sessionStorage.removeItem('stn-teacher-session'); teacherAccess.role = null; teacherAccess.specialty = null; teacherDashboard?.classList.add('hidden'); teacherLogin?.classList.add('hidden'); teacherGate?.classList.remove('hidden'); teacherSection?.classList.add('teacher-locked'); setTeacherPortalState(false); $('#teacher-password').value = ''; applyTeacherAccess(); });
 // La única entrada para nuevos registros es «Ingresar prematrícula».
 // Se retira cualquier botón heredado «Registrar estudiante» de versiones anteriores.
@@ -683,6 +691,9 @@ if (teacherAgenda) {
   const csvLabel = document.createElement('label'); csvLabel.className = 'upload-label hidden'; csvLabel.id = 'csv-import-control'; csvLabel.dataset.adminOnly = 'true'; csvLabel.title = 'Disponible únicamente para el administrador'; csvLabel.innerHTML = '▣ Importar base de datos<input id="csv-upload" type="file" accept=".csv,text/csv" hidden>'; actions.append(csvLabel);
   const exportButton = document.createElement('button'); exportButton.type = 'button'; exportButton.id = 'export-database'; exportButton.className = 'upload-label'; exportButton.dataset.adminOnly = 'true'; exportButton.textContent = '⇩ Exportar respaldo'; exportButton.title = 'Descargar una copia CSV de la base sincronizada'; actions.append(exportButton);
   const searchBar = document.createElement('div'); searchBar.className = 'student-search-bar'; searchBar.innerHTML = '<label for="student-search">Buscar estudiante<input id="student-search" type="search" placeholder="Nombre, identificación, correo o teléfono" autocomplete="off"><button id="clear-student-search" type="button">Limpiar</button></label>'; actions.after(searchBar);
+  const reporting = document.createElement('section'); reporting.id = 'reporting-controls'; reporting.className = 'reporting-controls hidden'; reporting.innerHTML = '<div class="reporting-heading"><div><span>Informes institucionales</span><h3>Generar informe de estudiantes</h3><p>Aplicá los filtros requeridos y descargá el respaldo o abrí una versión lista para imprimir o guardar en PDF.</p></div><span class="report-access">Administrador y personal administrativo</span></div><div class="report-filter-grid"><label>Especialidad<select id="report-specialty"><option value="Todas">Todas las especialidades</option></select></label><label>Estado<select id="report-status"><option value="Todas">Todos los estados</option></select></label><label>Provincia<select id="report-province"><option value="Todas">Todas las provincias</option></select></label><label>Cantón<select id="report-canton"><option value="Todas">Todos los cantones</option></select></label><label>Desde<input id="report-from" type="date"></label><label>Hasta<input id="report-to" type="date"></label><label class="report-query">Buscar en todos los campos<input id="report-query" type="search" placeholder="Nombre, cédula, correo, teléfono…"></label></div><div class="report-actions"><button id="report-preview" type="button">▣ Vista para imprimir / PDF</button><button id="report-download" type="button">⇩ Descargar informe CSV</button><small id="report-count">0 registros seleccionados</small></div></section>';
+  const adminOnlyNotice = document.createElement('p'); adminOnlyNotice.id = 'admin-only-notice'; adminOnlyNotice.className = 'admin-only-notice hidden'; adminOnlyNotice.textContent = 'Acceso solo para el Administrador: la importación de bases, las contraseñas y la eliminación de registros requieren la cuenta administrativa.';
+  searchBar.after(reporting); reporting.after(adminOnlyNotice);
   const db = document.createElement('section'); db.className = 'database-summary'; db.id = 'database-summary'; db.innerHTML = '<div><b id="db-total">0</b><span>Registros CSV</span></div><div><b id="db-visible">0</b><span>En esta especialidad</span></div><div><b id="db-duplicates">0</b><span>Duplicados detectados</span></div><p id="db-source">Importá la base CSV desde este dispositivo para ver prematrícula y matrícula. La información no se publica.</p><section class="teacher-duplicate-summary" id="teacher-duplicate-list" aria-live="polite"></section><div class="database-table-wrap"><table class="database-table"><thead><tr><th>Estudiante</th><th>Identificación</th><th>Especialidad</th><th>Contacto</th><th>Estado</th><th>Acción</th></tr></thead><tbody id="csv-table-body"><tr><td colspan="6">No hay datos cargados.</td></tr></tbody></table></div>'; searchBar.after(db);
   function csvParse(text) { const rows = [], row = []; let cell = '', quoted = false; for (let i = 0; i < text.length; i++) { const ch = text[i], next = text[i + 1]; if (ch === '"' && quoted && next === '"') { cell += '"'; i++; } else if (ch === '"') quoted = !quoted; else if (ch === ',' && !quoted) { row.push(cell); cell = ''; } else if ((ch === '\n' || ch === '\r') && !quoted) { if (ch === '\r' && next === '\n') i++; row.push(cell); if (row.some(v => v.trim())) rows.push(row.splice(0)); cell = ''; } else cell += ch; } if (cell || row.length) { row.push(cell); rows.push(row); } const headers = (rows.shift() || []).map(h => h.replace(/^\uFEFF/, '').trim()); return rows.map(values => Object.fromEntries(headers.map((h, i) => [h, (values[i] || '').trim()]))); }
   function field(record, matcher) { const key = Object.keys(record).find(k => matcher.test(k)); return key ? record[key] : ''; }
@@ -820,6 +831,67 @@ if (teacherAgenda) {
   }
   function updateDatabaseCounters() { const pre = csvState.records.filter(r => !/matriculad[oa]/i.test(r.status) || /pre.?matriculad/i.test(r.status)).length, mat = csvState.records.filter(r => /matriculad[oa]/i.test(r.status) && !/pre.?matriculad/i.test(r.status)).length; const preCount = $('#pre-count'); const matCount = $('#mat-count'); if (preCount) preCount.textContent = pre; if (matCount) matCount.textContent = mat; }
   function normalizeSearchText(value) { return String(value ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\s-]+/g, ' ').trim(); }
+  const reportState = { specialty: 'Todas', status: 'Todas', province: 'Todas', canton: 'Todas', from: '', to: '', query: '' };
+  const reportField = name => $(`#report-${name}`);
+  const reportUniqueValues = key => [...new Set(csvState.records.map(record => String(record[key] || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+  function fillReportSelect(name, values, allLabel) {
+    const select = reportField(name); if (!select) return;
+    const current = reportState[name] || 'Todas';
+    select.innerHTML = `<option value="Todas">${escapeHtml(allLabel)}</option>${values.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('')}`;
+    select.value = values.includes(current) || current === 'Todas' ? current : 'Todas';
+    reportState[name] = select.value;
+  }
+  function updateReportFilters() {
+    fillReportSelect('specialty', reportUniqueValues('specialty'), 'Todas las especialidades');
+    fillReportSelect('status', reportUniqueValues('status'), 'Todos los estados');
+    fillReportSelect('province', reportUniqueValues('province'), 'Todas las provincias');
+    fillReportSelect('canton', reportUniqueValues('canton'), 'Todos los cantones');
+    const rows = getReportRows();
+    const count = $('#report-count'); if (count) count.textContent = `${rows.length} registro${rows.length === 1 ? '' : 's'} seleccionado${rows.length === 1 ? '' : 's'}`;
+  }
+  function getReportRows() {
+    const from = reportState.from ? new Date(`${reportState.from}T00:00:00`) : null;
+    const to = reportState.to ? new Date(`${reportState.to}T23:59:59`) : null;
+    const query = normalizeSearchText(reportState.query);
+    return csvState.records.filter(record => {
+      const recordDate = parseRecordDate(record.timestamp);
+      const matchesText = !query || normalizeSearchText([record.name, record.id, record.email, record.phone, record.specialty, record.status, record.province, record.canton, ...Object.values(record.raw)].join(' ')).includes(query);
+      return (reportState.specialty === 'Todas' || record.specialty === reportState.specialty)
+        && (reportState.status === 'Todas' || record.status === reportState.status)
+        && (reportState.province === 'Todas' || record.province === reportState.province)
+        && (reportState.canton === 'Todas' || record.canton === reportState.canton)
+        && (!from || (recordDate && recordDate >= from))
+        && (!to || (recordDate && recordDate <= to))
+        && matchesText;
+    });
+  }
+  function csvFromReportRows(rows) {
+    const headers = [...new Set(rows.flatMap(record => Object.keys(record.raw)))];
+    const quote = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    return [headers.map(quote).join(','), ...rows.map(record => headers.map(header => quote(record.raw[header])).join(','))].join('\r\n');
+  }
+  function downloadReportCsv() {
+    if (!hasInstitutionalOverview()) return;
+    const rows = getReportRows();
+    if (!rows.length) { alert('No hay registros para los filtros seleccionados.'); return; }
+    const blob = new Blob([`\uFEFF${csvFromReportRows(rows)}`], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob), link = document.createElement('a');
+    link.href = url; link.download = `informe-stn-${reportState.specialty === 'Todas' ? 'general' : normalizeSearchText(reportState.specialty).replace(/\s+/g, '-')}-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+  }
+  function openPrintableReport() {
+    if (!hasInstitutionalOverview()) return;
+    const rows = getReportRows();
+    if (!rows.length) { alert('No hay registros para los filtros seleccionados.'); return; }
+    const popout = window.open('', '_blank');
+    if (!popout) { alert('El navegador bloqueó la ventana del informe. Permití ventanas emergentes e intentá de nuevo.'); return; }
+    const assetUrl = file => new URL(`assets/${file}`, window.location.href).href;
+    const filters = [['Especialidad', reportState.specialty], ['Estado', reportState.status], ['Provincia', reportState.province], ['Cantón', reportState.canton], ['Desde', reportState.from || 'Sin límite'], ['Hasta', reportState.to || 'Sin límite'], ['Búsqueda', reportState.query || 'Sin filtro']].filter(([, value]) => value && value !== 'Todas');
+    const filterMarkup = filters.length ? filters.map(([key, value]) => `<span><b>${escapeHtml(key)}:</b> ${escapeHtml(value)}</span>`).join('') : '<span>Sin filtros: informe general institucional.</span>';
+    const rowsMarkup = rows.map((record, index) => `<tr><td>${index + 1}</td><td>${escapeHtml(record.name)}</td><td>${escapeHtml(record.id || '—')}</td><td>${escapeHtml(record.specialty)}</td><td>${escapeHtml(record.status)}</td><td>${escapeHtml(record.email || record.phone || '—')}</td></tr>`).join('');
+    popout.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Informe STN</title><style>body{font-family:Arial,sans-serif;color:#10294f;margin:0;background:#eef4fa}.sheet{max-width:1100px;margin:24px auto;background:#fff;padding:34px;box-shadow:0 8px 28px #001b3c22}.head{display:flex;align-items:center;gap:20px;border-bottom:4px solid #17a8be;padding-bottom:18px}.head img{width:78px;height:78px;object-fit:contain}.head .stn{width:105px;border-radius:8px}.head h1{margin:0;font-size:24px}.head p{margin:6px 0 0;color:#55708e}.meta{display:flex;justify-content:space-between;gap:20px;margin:18px 0;font-size:13px}.filters{display:flex;flex-wrap:wrap;gap:7px;margin:16px 0}.filters span{padding:6px 9px;background:#eaf5f7;border:1px solid #c4e5e8;border-radius:999px;font-size:12px}table{width:100%;border-collapse:collapse;font-size:12px}th{background:#123d70;color:#fff;text-align:left}th,td{padding:9px;border:1px solid #cedbe8;vertical-align:top}tr:nth-child(even){background:#f5f9fd}.tools{margin-bottom:20px}.tools button{background:#0b6592;color:white;border:0;border-radius:6px;padding:9px 12px;font-weight:bold;cursor:pointer}@media print{body{background:#fff}.sheet{margin:0;box-shadow:none;padding:0}.tools{display:none}@page{margin:12mm}}</style></head><body><main class="sheet"><div class="tools"><button onclick="window.print()">Imprimir / Guardar como PDF</button></div><header class="head"><img class="stn" src="${assetUrl('logo-stn.jpeg')}" alt="Logo STN"><div><h1>Sección Técnica Nocturna · CTP Calle Blancos</h1><p>Informe institucional de estudiantes · Admisión 2027</p></div><img src="${assetUrl('escudo-ctp.png')}" alt="Escudo CTP Calle Blancos"></header><div class="meta"><span><b>Registros incluidos:</b> ${rows.length}</span><span><b>Generado:</b> ${escapeHtml(new Date().toLocaleString('es-CR'))}</span></div><section class="filters">${filterMarkup}</section><table><thead><tr><th>#</th><th>Estudiante</th><th>Identificación</th><th>Especialidad</th><th>Estado</th><th>Contacto</th></tr></thead><tbody>${rowsMarkup}</tbody></table></main></body></html>`);
+    popout.document.close();
+  }
   function renderRecordField(key, value) {
     const text = String(value || '');
     const isAttachment = /adjunta.*titulo|archivo adjunto|documento adjunto/i.test(key);
@@ -873,11 +945,15 @@ if (teacherAgenda) {
         $('#db-source').textContent = `No se pudo confirmar la eliminación: ${error.message || 'intentá de nuevo.'}`;
       });
     }));
+    if (hasInstitutionalOverview()) updateReportFilters();
   }
   $('#student-search').addEventListener('input', e => { csvState.search = e.target.value; renderDatabase(); });
   $('#clear-student-search').addEventListener('click', () => { csvState.search = ''; $('#student-search').value = ''; renderDatabase(); $('#student-search').focus(); });
-  $('#csv-upload').addEventListener('change', async e => { const file = e.target.files[0]; if (!file) return; const text = await file.text(); localStorage.setItem('stn-imported-csv', text); const deletedKeys = getDeletedRecordKeys(); csvState.records.splice(0, csvState.records.length, ...prepareRecords(csvParse(text)).filter(record => shouldDisplayRecoveredRecord(record, deletedKeys))); csvState.filter = $('.specialty-tab.active')?.dataset.specialty || 'Todas'; renderDatabase(); $('#db-source').textContent = `Base importada en este dispositivo · ${csvState.records.length} registros · solo lectura`; e.target.value = ''; });
-  exportButton.addEventListener('click', () => { if (!csvState.records.length) { alert('No hay registros cargados para exportar.'); return; } const headers = Object.keys(csvState.records[0].raw); const quote = value => `"${String(value ?? '').replace(/"/g, '""')}"`; const csv = [headers.map(quote).join(','), ...csvState.records.map(record => headers.map(header => quote(record.raw[header])).join(','))].join('\r\n'); const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = `respaldo-stn-prematriculas-${new Date().toISOString().slice(0, 10)}.csv`; document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(url); });
+  ['specialty', 'status', 'province', 'canton', 'from', 'to', 'query'].forEach(name => reportField(name)?.addEventListener(name === 'query' ? 'input' : 'change', event => { reportState[name] = event.target.value; const count = $('#report-count'); if (count) { const rows = getReportRows(); count.textContent = `${rows.length} registro${rows.length === 1 ? '' : 's'} seleccionado${rows.length === 1 ? '' : 's'}`; } }));
+  $('#report-preview')?.addEventListener('click', openPrintableReport);
+  $('#report-download')?.addEventListener('click', downloadReportCsv);
+  $('#csv-upload').addEventListener('change', async e => { if (!canManageRecords()) { e.target.value = ''; alert('Acceso solo para el Administrador.'); return; } const file = e.target.files[0]; if (!file) return; const text = await file.text(); localStorage.setItem('stn-imported-csv', text); const deletedKeys = getDeletedRecordKeys(); csvState.records.splice(0, csvState.records.length, ...prepareRecords(csvParse(text)).filter(record => shouldDisplayRecoveredRecord(record, deletedKeys))); csvState.filter = $('.specialty-tab.active')?.dataset.specialty || 'Todas'; renderDatabase(); $('#db-source').textContent = `Base importada en este dispositivo · ${csvState.records.length} registros · solo lectura`; e.target.value = ''; });
+  exportButton.addEventListener('click', () => { if (!hasInstitutionalOverview()) { alert('Acceso solo para el Administrador o el personal administrativo.'); return; } if (!csvState.records.length) { alert('No hay registros cargados para exportar.'); return; } const headers = Object.keys(csvState.records[0].raw); const quote = value => `"${String(value ?? '').replace(/"/g, '""')}"`; const csv = [headers.map(quote).join(','), ...csvState.records.map(record => headers.map(header => quote(record.raw[header])).join(','))].join('\r\n'); const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = `respaldo-stn-prematriculas-${new Date().toISOString().slice(0, 10)}.csv`; document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(url); });
   if (teacherAccess.role) applyTeacherAccess();
   $$('.specialty-tab').forEach(tab => tab.addEventListener('click', () => { csvState.filter = tab.dataset.specialty; renderDatabase(); }));
   renderDatabase();
