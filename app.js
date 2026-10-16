@@ -787,14 +787,16 @@ if (teacherAgenda) {
         delete window[callback];
         if (!applyPayload(payload)) fail('La base institucional respondió con un formato no válido.');
       };
-      fallbackScript.src = `${SYNC_ENDPOINT}?callback=${callback}&_=${Date.now()}`;
+      const fallbackParams = new URLSearchParams({ action: 'data', authToken: getAuthToken(), callback, _: String(Date.now()) });
+      fallbackScript.src = `${SYNC_ENDPOINT}?${fallbackParams.toString()}`;
       fallbackScript.onerror = () => { delete window[callback]; fail('No fue posible consultar la base institucional.'); };
       document.body.append(fallbackScript);
     };
     // Fetch con CORS funciona de forma consistente en Chrome, Edge, Firefox y Safari.
     // JSONP queda como respaldo para redes que bloqueen solicitudes fetch.
     responseTimer = window.setTimeout(() => fail('No fue posible consultar la base institucional. No se muestran datos sin confirmación remota.'), 45000);
-    fetch(`${SYNC_ENDPOINT}?_=${Date.now()}`, { cache: 'no-store', mode: 'cors', headers: { Accept: 'application/json' } })
+    const remoteParams = new URLSearchParams({ action: 'data', authToken: getAuthToken(), _: String(Date.now()) });
+    fetch(`${SYNC_ENDPOINT}?${remoteParams.toString()}`, { cache: 'no-store', mode: 'cors', headers: { Accept: 'application/json' } })
       .then(response => { if (!response.ok) throw new Error(`HTTP ${response.status}`); return response.json(); })
       .then(payload => { if (!applyPayload(payload)) requestJsonpFallback(); })
       .catch(() => requestJsonpFallback());
