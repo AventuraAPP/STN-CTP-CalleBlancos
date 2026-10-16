@@ -29,17 +29,10 @@ async function sha256Hex(value) {
 }
 function requestRemoteJson(params = {}) {
   if (!SYNC_ENDPOINT) return Promise.reject(new Error('El servicio institucional no está configurado.'));
-  const callback = `stnRemote_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-  const query = new URLSearchParams({ ...params, callback, _: String(Date.now()) });
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    const cleanup = () => { window.clearTimeout(timer); delete window[callback]; script.remove(); };
-    const timer = window.setTimeout(() => { cleanup(); reject(new Error('La base institucional no respondió a tiempo.')); }, 15000);
-    window[callback] = payload => { cleanup(); payload?.ok ? resolve(payload) : reject(new Error(payload?.message || 'La base institucional rechazó la solicitud.')); };
-    script.onerror = () => { cleanup(); reject(new Error('No fue posible contactar la base institucional.')); };
-    script.src = `${SYNC_ENDPOINT}?${query.toString()}`;
-    document.body.append(script);
-  });
+  const query = new URLSearchParams({ ...params, _: String(Date.now()) });
+  return fetch(`${SYNC_ENDPOINT}?${query.toString()}`, { cache: 'no-store', mode: 'cors', headers: { Accept: 'application/json' } })
+    .then(response => { if (!response.ok) throw new Error(`HTTP ${response.status}`); return response.json(); })
+    .then(payload => { if (!payload?.ok) throw new Error(payload?.message || 'La base institucional rechazó la solicitud.'); return payload; });
 }
 async function authenticateTeacher(password) {
   const challenge = await requestRemoteJson({ action: 'challenge' });
