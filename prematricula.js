@@ -1,6 +1,6 @@
-// El registro público queda detenido mientras se habilita un backend privado.
-// Nunca se exponen endpoints institucionales en el repositorio público.
-const SYNC_ENDPOINT = '';
+// El formulario público solo crea registros; la lectura institucional requiere
+// un token y nunca se expone la base completa al visitante.
+const SYNC_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyyeomXgKMvXwOJsZq3bjx56tJ0hRpmZcKJ8V9OAUgAOZdDUOJvpVzyd8WLNEcgJCjE/exec';
 
 function nativeRecordToRemotePayload(record) {
   const syncId = record.syncId || record['ID de sincronización'] || record.createdAt || `${record.identification || ''}|${record.name || ''}|${record.specialty || ''}`;
@@ -66,38 +66,13 @@ async function flushPendingSync() {
   }
   writePendingSync(remaining);
 }
-const wait = milliseconds => new Promise(resolve => window.setTimeout(resolve, milliseconds));
-function requestRemoteSnapshot() {
-  return new Promise((resolve, reject) => {
-    if (!SYNC_ENDPOINT || SYNC_ENDPOINT.includes('PASTE_')) { reject(new Error('El servicio institucional no está configurado.')); return; }
-    const callback = `stnSyncCheck_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-    const script = document.createElement('script');
-    const cleanup = () => { window.clearTimeout(timer); delete window[callback]; script.remove(); };
-    const timer = window.setTimeout(() => { cleanup(); reject(new Error('La base institucional no respondió a tiempo.')); }, 10000);
-    window[callback] = payload => { cleanup(); payload?.ok ? resolve(payload) : reject(new Error(payload?.message || 'La base institucional rechazó la consulta.')); };
-    script.onerror = () => { cleanup(); reject(new Error('No fue posible contactar la base institucional.')); };
-    script.src = `${SYNC_ENDPOINT}?callback=${callback}&_=${Date.now()}`;
-    document.body.append(script);
-  });
-}
-function remotePayloadHasSyncId(payload, syncId) {
-  const headers = payload?.headers || [];
-  const idColumn = headers.findIndex(header => /id de sincronizaci[oó]n|syncid/i.test(String(header)));
-  return idColumn >= 0 && (payload.rows || []).some(row => String(row?.[idColumn] || '') === String(syncId));
-}
-async function waitForRemoteRecord(syncId) {
-  for (let attempt = 0; attempt < 6; attempt += 1) {
-    const snapshot = await requestRemoteSnapshot();
-    if (remotePayloadHasSyncId(snapshot, syncId)) return snapshot;
-    await wait(900);
-  }
-  throw new Error('La base institucional no confirmó el registro.');
-}
 async function sendRecordToRemote(record) {
   if (!navigator.onLine) throw new Error('No hay conexión a Internet.');
   const payload = JSON.stringify({ action: 'create', ...nativeRecordToRemotePayload(record) });
   await fetch(SYNC_ENDPOINT, { method: 'POST', mode: 'no-cors', cache: 'no-store', keepalive: true, headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: payload });
-  return waitForRemoteRecord(record.syncId || record.createdAt);
+  // Apps Script responde mediante una solicitud no-cors; el envío se considera
+  // aceptado cuando el navegador completa la petición sin error de red.
+  return { ok: true, syncId: record.syncId || record.createdAt };
 }
 async function syncPrematriculaToRemote(record) {
   queuePendingSync(record);
@@ -112,9 +87,9 @@ const form = document.querySelector('#public-prematricula-form');
 const message = document.querySelector('#public-prematricula-message');
 form?.addEventListener('submit', async event => {
   event.preventDefault();
-  if (!SYNC_ENDPOINT) {
+  if (!SYNC_ENDPOINT || SYNC_ENDPOINT.includes('PASTE_')) {
     message.classList.add('error');
-    message.textContent = 'La prematrícula está temporalmente protegida mientras se habilita el acceso institucional seguro. No se guardaron ni enviaron datos.';
+    message.textContent = 'El servicio institucional no está disponible en este momento. No se enviaron datos.';
     return;
   }
   const values = Object.fromEntries(new FormData(form).entries());

@@ -1,12 +1,11 @@
 const $ = (selector, parent = document) => parent.querySelector(selector);
 const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector)];
 
-// Modo de contención: el sitio público no contiene contraseñas, datos de
-// estudiantes ni direcciones de servicios institucionales. La autenticación
-// se habilitará únicamente desde un backend privado con control de roles.
+// La autenticación y la base institucional viven en Apps Script. El sitio
+// público nunca contiene contraseñas: solo recibe un token de sesión temporal.
 const TEACHER_ADMIN_PASSWORD = null;
 const ADMINISTRATIVE_STAFF_PASSWORD = null;
-const SYNC_ENDPOINT = '';
+const SYNC_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyyeomXgKMvXwOJsZq3bjx56tJ0hRpmZcKJ8V9OAUgAOZdDUOJvpVzyd8WLNEcgJCjE/exec';
 const DEPARTMENT_PASSWORDS = Object.freeze({
   'Ciberseguridad': null,
   'Contabilidad': null,
@@ -21,6 +20,33 @@ const getDepartmentPasswords = () => ({ ...DEPARTMENT_PASSWORDS });
 const allowedTeacherSpecialty = () => teacherAccess.role === 'department' ? teacherAccess.specialty : null;
 const hasInstitutionalOverview = () => ['admin', 'administrative'].includes(teacherAccess.role);
 const canManageRecords = () => teacherAccess.role === 'admin';
+const AUTH_TOKEN_KEY = 'stn-auth-token';
+const getAuthToken = () => sessionStorage.getItem(AUTH_TOKEN_KEY) || '';
+async function sha256Hex(value) {
+  const bytes = new TextEncoder().encode(String(value));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
+}
+function requestRemoteJson(params = {}) {
+  if (!SYNC_ENDPOINT) return Promise.reject(new Error('El servicio institucional no está configurado.'));
+  const callback = `stnRemote_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const query = new URLSearchParams({ ...params, callback, _: String(Date.now()) });
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    const cleanup = () => { window.clearTimeout(timer); delete window[callback]; script.remove(); };
+    const timer = window.setTimeout(() => { cleanup(); reject(new Error('La base institucional no respondió a tiempo.')); }, 15000);
+    window[callback] = payload => { cleanup(); payload?.ok ? resolve(payload) : reject(new Error(payload?.message || 'La base institucional rechazó la solicitud.')); };
+    script.onerror = () => { cleanup(); reject(new Error('No fue posible contactar la base institucional.')); };
+    script.src = `${SYNC_ENDPOINT}?${query.toString()}`;
+    document.body.append(script);
+  });
+}
+async function authenticateTeacher(password) {
+  const challenge = await requestRemoteJson({ action: 'challenge' });
+  const passwordHash = await sha256Hex(password);
+  const proof = await sha256Hex(`${passwordHash}${challenge.challenge}`);
+  return requestRemoteJson({ action: 'auth', challenge: challenge.challenge, proof });
+}
 
 function nativeRecordToRemotePayload(record) {
   const syncId = record.syncId || record['ID de sincronización'] || record.createdAt || `${record.identification || ''}|${record.name || ''}|${record.specialty || ''}`;
@@ -81,22 +107,7 @@ function queuePendingSync(record) {
 }
 const wait = milliseconds => new Promise(resolve => window.setTimeout(resolve, milliseconds));
 function requestRemoteSnapshot() {
-  if (!SYNC_ENDPOINT || SYNC_ENDPOINT.includes('PASTE_')) return Promise.reject(new Error('El servicio institucional no está configurado.'));
-  const callback = `stnRemoteSnapshot_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    const finish = (value, error) => {
-      window.clearTimeout(timeout);
-      delete window[callback];
-      script.remove();
-      error ? reject(error) : resolve(value);
-    };
-    const timeout = window.setTimeout(() => finish(null, new Error('La base institucional no respondió.')), 12000);
-    window[callback] = payload => finish(payload);
-    script.onerror = () => finish(null, new Error('No fue posible consultar la base institucional.'));
-    script.src = `${SYNC_ENDPOINT}?callback=${callback}&_=${Date.now()}`;
-    document.body.append(script);
-  });
+  return requestRemoteJson({ action: 'data', authToken: getAuthToken() });
 }
 function remotePayloadHasSyncId(payload, syncId) {
   const headers = Array.isArray(payload?.headers) ? payload.headers : [];
@@ -179,21 +190,18 @@ async function deletePrematriculaFromRemote(record) {
   if (!SYNC_ENDPOINT || SYNC_ENDPOINT.includes('PASTE_')) return { ok: false, error: 'Servicio no configurado.' };
   const syncId = record.syncId || record.raw?.['ID de sincronización'] || '';
   const timestamp = record.timestamp || record.raw?.['Marca temporal'] || '';
-  const params = new URLSearchParams({
-    action: 'delete',
-    syncId,
-    recordId: syncId,
-    timestamp,
-    identification: record.id || '',
-    name: record.name || '',
-    specialty: record.specialty || '',
-    _: String(Date.now())
-  });
   let payload;
   try {
-    const response = await fetch(`${SYNC_ENDPOINT}?${params.toString()}`, { cache: 'no-store', mode: 'cors', headers: { Accept: 'application/json' } });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    payload = await response.json();
+    payload = await requestRemoteJson({
+      action: 'delete',
+      authToken: getAuthToken(),
+      syncId,
+      recordId: syncId,
+      timestamp,
+      identification: record.id || '',
+      name: record.name || '',
+      specialty: record.specialty || ''
+    });
   } catch (error) {
     return { ok: false, error: `No se pudo confirmar la eliminación: ${error.message || 'error de conexión'}.` };
   }
@@ -359,21 +367,16 @@ if (generalDashboard) {
   };
 
   function loadRemotePrematriculas() {
-    if (!SYNC_ENDPOINT || SYNC_ENDPOINT.includes('PASTE_')) return;
-    window.stnReceiveRemoteDatabase = payload => {
+    if (!SYNC_ENDPOINT || SYNC_ENDPOINT.includes('PASTE_') || !getAuthToken()) return;
+    requestRemoteJson({ action: 'data', authToken: getAuthToken() }).then(payload => {
       if (!payload?.ok || !Array.isArray(payload.rows)) return;
       const headers = payload.headers || [];
       const remoteRaw = payload.rows.map(row => Object.fromEntries(headers.map((header, index) => [header, row[index] || ''])));
       const deletedKeys = getDeletedRecordKeys();
-        generalState.records = prepareGeneralRecords(remoteRaw).filter(record => shouldDisplayRecoveredRecord(record, deletedKeys));
+      generalState.records = prepareGeneralRecords(remoteRaw).filter(record => shouldDisplayRecoveredRecord(record, deletedKeys));
       renderGeneralDashboard();
       $('#db-source').textContent = `Base sincronizada en tiempo real · ${generalState.records.length} registros · hoja de respuestas de Google`;
-    };
-    const script = document.createElement('script');
-    script.src = `${SYNC_ENDPOINT}?callback=stnReceiveRemoteDatabase&_=${Date.now()}`;
-    script.onload = () => script.remove();
-    script.onerror = () => script.remove();
-    document.body.append(script);
+    }).catch(() => {});
   }
   window.addEventListener('message', event => {
     if (event.origin !== window.location.origin || event.data?.type !== 'stn-prematricula-saved') return;
@@ -625,14 +628,30 @@ function enterTeacherPortal(role, specialty = null) {
   teacherAccess.role = role; teacherAccess.specialty = specialty;
   installPrematriculaPanel();
   teacherGate?.classList.add('hidden'); teacherLogin?.classList.add('hidden'); teacherDashboard?.classList.remove('hidden'); teacherSection?.classList.remove('teacher-locked'); setTeacherPortalState(true); applyTeacherAccess();
-  sessionStorage.setItem('stn-teacher-session', JSON.stringify({ role, specialty }));
+  sessionStorage.setItem('stn-teacher-session', JSON.stringify({ role, specialty, token: getAuthToken() }));
   updateDashboard();
   loadTeacherDatabaseForSession();
 }
 const setTeacherPortalState = active => { if (!teacherSection) return; teacherSection.classList.toggle('teacher-portal-active', active); teacherSection.style.gridTemplateColumns = active ? '1fr' : ''; const copy = teacherSection.querySelector('.teacher-copy'); const access = teacherSection.querySelector('.teacher-access'); const note = teacherSection.querySelector('.security-note'); if (active) { copy?.style.setProperty('grid-column', '1 / -1'); access?.style.setProperty('grid-column', '1 / -1'); note?.style.setProperty('grid-column', '1 / -1'); } else { copy?.style.removeProperty('grid-column'); access?.style.removeProperty('grid-column'); note?.style.removeProperty('grid-column'); } };
-teacherLogin?.addEventListener('submit', e => { e.preventDefault(); const message = $('#login-message'); message.textContent = 'Acceso temporalmente restringido por seguridad. El Portal docente se reactivará mediante autenticación institucional privada.'; message.classList.add('error'); });
-sessionStorage.removeItem('stn-teacher-session');
-$('#logout')?.addEventListener('click', () => { sessionStorage.removeItem('stn-teacher-session'); teacherAccess.role = null; teacherAccess.specialty = null; teacherDashboard?.classList.add('hidden'); teacherLogin?.classList.add('hidden'); teacherGate?.classList.remove('hidden'); teacherSection?.classList.add('teacher-locked'); setTeacherPortalState(false); $('#teacher-password').value = ''; applyTeacherAccess(); });
+teacherLogin?.addEventListener('submit', async e => {
+  e.preventDefault();
+  const message = $('#login-message'), password = $('#teacher-password').value;
+  if (!password) return;
+  message.classList.remove('error'); message.textContent = 'Verificando credenciales institucionales…';
+  try {
+    const auth = await authenticateTeacher(password);
+    if (!auth?.ok || !auth.token) throw new Error(auth?.message || 'No se pudo validar la cuenta.');
+    sessionStorage.setItem(AUTH_TOKEN_KEY, auth.token);
+    sessionStorage.setItem('stn-teacher-session', JSON.stringify({ role: auth.role, specialty: auth.specialty, token: auth.token }));
+    enterTeacherPortal(auth.role, auth.specialty || null);
+    message.textContent = '✓ Acceso autorizado. Base institucional sincronizada.';
+  } catch (error) {
+    message.classList.add('error'); message.textContent = error.message || 'No fue posible validar el acceso.';
+  }
+});
+const savedTeacherSession = (() => { try { return JSON.parse(sessionStorage.getItem('stn-teacher-session') || 'null'); } catch (_) { return null; } })();
+if (savedTeacherSession?.token) { sessionStorage.setItem(AUTH_TOKEN_KEY, savedTeacherSession.token); teacherAccess.role = savedTeacherSession.role || null; teacherAccess.specialty = savedTeacherSession.specialty || null; }
+$('#logout')?.addEventListener('click', () => { sessionStorage.removeItem('stn-teacher-session'); sessionStorage.removeItem(AUTH_TOKEN_KEY); teacherAccess.role = null; teacherAccess.specialty = null; teacherDashboard?.classList.add('hidden'); teacherLogin?.classList.add('hidden'); teacherGate?.classList.remove('hidden'); teacherSection?.classList.add('teacher-locked'); setTeacherPortalState(false); $('#teacher-password').value = ''; applyTeacherAccess(); });
 // La única entrada para nuevos registros es «Ingresar prematrícula».
 // Se retira cualquier botón heredado «Registrar estudiante» de versiones anteriores.
 $('#add-student')?.remove();
