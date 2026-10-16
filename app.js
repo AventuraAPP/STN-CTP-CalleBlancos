@@ -1,31 +1,23 @@
 const $ = (selector, parent = document) => parent.querySelector(selector);
 const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector)];
 
-// Acceso por departamento para el Portal docente. En GitHub Pages este control
-// protege la interfaz, pero no sustituye un backend con autenticación real.
-const TEACHER_ADMIN_PASSWORD = 'RoyAdmSTN';
-// Perfil de consulta institucional: puede visualizar todas las especialidades,
-// exportar respaldos e informes, pero no alterar registros ni credenciales.
-const ADMINISTRATIVE_STAFF_PASSWORD = 'STNAdministrativo27!';
-// Endpoint público de Google Apps Script para sincronizar prematrículas,
-// consultar el panel docente y enviar confirmaciones por correo.
-const SYNC_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyyeomXgKMvXwOJsZq3bjx56tJ0hRpmZcKJ8V9OAUgAOZdDUOJvpVzyd8WLNEcgJCjE/exec';
+// Modo de contención: el sitio público no contiene contraseñas, datos de
+// estudiantes ni direcciones de servicios institucionales. La autenticación
+// se habilitará únicamente desde un backend privado con control de roles.
+const TEACHER_ADMIN_PASSWORD = null;
+const ADMINISTRATIVE_STAFF_PASSWORD = null;
+const SYNC_ENDPOINT = '';
 const DEPARTMENT_PASSWORDS = Object.freeze({
-  'Ciberseguridad': 'STNCiber27!',
-  'Contabilidad': 'STNConta27!',
-  'Ejecutivo Comercial y Servicio al Cliente': 'STNComercial27!',
-  'Mantenimiento de Sistemas de Aire Acondicionado Industrial': 'STNAire27!',
-  'Electromecánica': 'STNElectro27!',
-  'Diseño de Productos Industriales Textiles': 'STNTextil27!'
+  'Ciberseguridad': null,
+  'Contabilidad': null,
+  'Ejecutivo Comercial y Servicio al Cliente': null,
+  'Mantenimiento de Sistemas de Aire Acondicionado Industrial': null,
+  'Electromecánica': null,
+  'Diseño de Productos Industriales Textiles': null
 });
 const teacherAccess = { role: null, specialty: null };
 let loadTeacherDatabaseForSession = () => {};
-const getDepartmentPasswords = () => {
-  try {
-    const stored = JSON.parse(localStorage.getItem('stn-department-passwords') || 'null');
-    return stored && typeof stored === 'object' ? { ...DEPARTMENT_PASSWORDS, ...stored } : { ...DEPARTMENT_PASSWORDS };
-  } catch (_) { return { ...DEPARTMENT_PASSWORDS }; }
-};
+const getDepartmentPasswords = () => ({ ...DEPARTMENT_PASSWORDS });
 const allowedTeacherSpecialty = () => teacherAccess.role === 'department' ? teacherAccess.specialty : null;
 const hasInstitutionalOverview = () => ['admin', 'administrative'].includes(teacherAccess.role);
 const canManageRecords = () => teacherAccess.role === 'admin';
@@ -638,8 +630,8 @@ function enterTeacherPortal(role, specialty = null) {
   loadTeacherDatabaseForSession();
 }
 const setTeacherPortalState = active => { if (!teacherSection) return; teacherSection.classList.toggle('teacher-portal-active', active); teacherSection.style.gridTemplateColumns = active ? '1fr' : ''; const copy = teacherSection.querySelector('.teacher-copy'); const access = teacherSection.querySelector('.teacher-access'); const note = teacherSection.querySelector('.security-note'); if (active) { copy?.style.setProperty('grid-column', '1 / -1'); access?.style.setProperty('grid-column', '1 / -1'); note?.style.setProperty('grid-column', '1 / -1'); } else { copy?.style.removeProperty('grid-column'); access?.style.removeProperty('grid-column'); note?.style.removeProperty('grid-column'); } };
-teacherLogin?.addEventListener('submit', e => { e.preventDefault(); const message = $('#login-message'), password = $('#teacher-password')?.value || '', specialty = teacherDepartmentSelect.value, passwords = getDepartmentPasswords(); message.classList.remove('error'); if (password === TEACHER_ADMIN_PASSWORD) enterTeacherPortal('admin'); else if (password === ADMINISTRATIVE_STAFF_PASSWORD) enterTeacherPortal('administrative'); else if (passwords[specialty] === password) enterTeacherPortal('department', specialty); else { message.textContent = 'Contraseña incorrecta para este departamento.'; message.classList.add('error'); } });
-try { const saved = JSON.parse(sessionStorage.getItem('stn-teacher-session') || 'null'); if (saved?.role === 'admin' || saved?.role === 'administrative' || (saved?.role === 'department' && teacherDepartmentNames.includes(saved.specialty))) enterTeacherPortal(saved.role, saved.specialty); } catch (_) { sessionStorage.removeItem('stn-teacher-session'); }
+teacherLogin?.addEventListener('submit', e => { e.preventDefault(); const message = $('#login-message'); message.textContent = 'Acceso temporalmente restringido por seguridad. El Portal docente se reactivará mediante autenticación institucional privada.'; message.classList.add('error'); });
+sessionStorage.removeItem('stn-teacher-session');
 $('#logout')?.addEventListener('click', () => { sessionStorage.removeItem('stn-teacher-session'); teacherAccess.role = null; teacherAccess.specialty = null; teacherDashboard?.classList.add('hidden'); teacherLogin?.classList.add('hidden'); teacherGate?.classList.remove('hidden'); teacherSection?.classList.add('teacher-locked'); setTeacherPortalState(false); $('#teacher-password').value = ''; applyTeacherAccess(); });
 // La única entrada para nuevos registros es «Ingresar prematrícula».
 // Se retira cualquier botón heredado «Registrar estudiante» de versiones anteriores.

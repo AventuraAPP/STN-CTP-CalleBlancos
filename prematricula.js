@@ -1,4 +1,6 @@
-const SYNC_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyyeomXgKMvXwOJsZq3bjx56tJ0hRpmZcKJ8V9OAUgAOZdDUOJvpVzyd8WLNEcgJCjE/exec';
+// El registro público queda detenido mientras se habilita un backend privado.
+// Nunca se exponen endpoints institucionales en el repositorio público.
+const SYNC_ENDPOINT = '';
 
 function nativeRecordToRemotePayload(record) {
   const syncId = record.syncId || record['ID de sincronización'] || record.createdAt || `${record.identification || ''}|${record.name || ''}|${record.specialty || ''}`;
@@ -110,6 +112,11 @@ const form = document.querySelector('#public-prematricula-form');
 const message = document.querySelector('#public-prematricula-message');
 form?.addEventListener('submit', async event => {
   event.preventDefault();
+  if (!SYNC_ENDPOINT) {
+    message.classList.add('error');
+    message.textContent = 'La prematrícula está temporalmente protegida mientras se habilita el acceso institucional seguro. No se guardaron ni enviaron datos.';
+    return;
+  }
   const values = Object.fromEntries(new FormData(form).entries());
   const file = form.querySelector('[name="titleFile"]')?.files?.[0];
   const submitButton = form.querySelector('[type="submit"]');

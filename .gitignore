@@ -1,0 +1,4 @@
+# Datos institucionales y respaldos: nunca se publican en el repositorio.
+data/base-datos-2026.csv
+*.local.csv
+*.private.json
