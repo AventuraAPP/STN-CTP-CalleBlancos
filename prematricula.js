@@ -69,10 +69,29 @@ async function flushPendingSync() {
 async function sendRecordToRemote(record) {
   if (!navigator.onLine) throw new Error('No hay conexión a Internet.');
   const payload = JSON.stringify({ action: 'create', ...nativeRecordToRemotePayload(record) });
-  await fetch(SYNC_ENDPOINT, { method: 'POST', mode: 'no-cors', cache: 'no-store', keepalive: true, headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: payload });
-  // Apps Script responde mediante una solicitud no-cors; el envío se considera
-  // aceptado cuando el navegador completa la petición sin error de red.
-  return { ok: true, syncId: record.syncId || record.createdAt };
+  // No usamos no-cors ni keepalive: ambos convierten la respuesta en opaca y pueden
+  // dejar el formulario esperando sin saber si Apps Script guardó el registro.
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 25000);
+  try {
+    const response = await fetch(SYNC_ENDPOINT, {
+      method: 'POST',
+      mode: 'cors',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8', Accept: 'application/json' },
+      body: payload,
+      signal: controller.signal
+    });
+    if (!response.ok) throw new Error(`El servicio respondió HTTP ${response.status}.`);
+    const result = await response.json();
+    if (!result?.ok) throw new Error(result?.message || 'La base institucional rechazó el registro.');
+    return result;
+  } catch (error) {
+    if (error?.name === 'AbortError') throw new Error('La base institucional tardó demasiado en responder. Intentá de nuevo; no se confirmó el registro.');
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
 }
 async function syncPrematriculaToRemote(record) {
   queuePendingSync(record);
