@@ -221,7 +221,7 @@ menu.addEventListener('click', () => { const open = nav.classList.toggle('open')
 $$('.main-nav a').forEach(a => a.addEventListener('click', () => { nav.classList.remove('open'); menu.textContent = '☰'; menu.setAttribute('aria-expanded', 'false'); }));
 
 const sharePrematriculaButton = $('#share-prematricula'), sharePrematriculaMenu = $('#share-prematricula-menu'), copyPrematriculaLink = $('#copy-prematricula-link'), sharePrematriculaWhatsapp = $('#share-prematricula-whatsapp');
-const prematriculaShareUrl = new URL('prematricula.html', window.location.href).href;
+const prematriculaShareUrl = new URL('prematricula.html?v=20261020-confirmed-save', window.location.href).href;
 const prematriculaShareText = 'Accedé a la prematrícula 2027 de la Sección Técnica Nocturna del CTP Calle Blancos.';
 if (sharePrematriculaWhatsapp) sharePrematriculaWhatsapp.href = `https://wa.me/?text=${encodeURIComponent(`${prematriculaShareText}\n${prematriculaShareUrl}`)}`;
 async function copyPrematriculaUrl() {
@@ -657,7 +657,7 @@ setTickerMessage(localStorage.getItem('stn-ticker') || $('#ticker-message').text
 
 const assistantReplies = [
   { keys: ['hola', 'buenas', 'buenos dias', 'buenas tardes'], text: '¡Hola! Soy el asistente STN. Puedo guiarte paso a paso por la oferta 2027, la prematrícula, las citas y los canales oficiales.' },
-  { keys: ['prematr', 'formulario', 'inscrib', 'inscrip'], text: 'La prematrícula 2027 se completa en el formulario oficial. Al enviarlo, tus datos quedan registrados para el proceso de admisión. Podés abrirlo desde el botón Prematrícula 2027.', actions: [{ label: 'Abrir prematrícula', href: 'prematricula.html' }] },
+  { keys: ['prematr', 'formulario', 'inscrib', 'inscrip'], text: 'La prematrícula 2027 se completa en el formulario oficial. Al enviarlo, tus datos quedan registrados para el proceso de admisión. Podés abrirlo desde el botón Prematrícula 2027.', actions: [{ label: 'Abrir prematrícula', href: 'prematricula.html?v=20261020-confirmed-save' }] },
   { keys: ['ciber', 'seguridad'], text: 'Ciberseguridad prepara en protección de sistemas, redes, información y entornos digitales. Es una de las especialidades de la oferta técnica nocturna 2027.' },
   { keys: ['contab'], text: 'Contabilidad desarrolla competencias para registrar, analizar y comunicar información financiera y apoyar decisiones administrativas.' },
   { keys: ['comercial', 'servicio al cliente', 'ventas'], text: 'Ejecutivo Comercial y Servicio al Cliente forma en comunicación, ventas, relaciones comerciales y experiencias de servicio.' },
