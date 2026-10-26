@@ -298,3 +298,81 @@
   .database-table th:first-child, .database-table td:first-child { position: static; box-shadow: none; }
   .database-table td:first-child b { min-width: 0; }
 }
+
+/* Contraste profesional para la base de datos y navegación horizontal superior */
+.database-table-wrap {
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: thin;
+  scrollbar-color: #41c6db #0b315c;
+}
+.database-horizontal-scroll {
+  display: block;
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 14px;
+  margin: .18rem 0 .55rem;
+  border: 1px solid rgba(91, 207, 226, .42);
+  border-radius: 999px;
+  background: rgba(7, 39, 79, .72);
+  scrollbar-width: auto;
+  scrollbar-color: #4dd2de #123f70;
+}
+.database-horizontal-scroll > div { height: 1px; min-width: 1480px; }
+.database-table { min-width: 1480px; }
+.database-table tbody td,
+.database-table tbody td:first-child {
+  background: rgba(15, 63, 111, .74) !important;
+  color: #e8f7ff !important;
+  border-color: rgba(141, 204, 232, .26);
+}
+.database-table tbody tr:nth-child(even) td,
+.database-table tbody tr:nth-child(even) td:first-child {
+  background: rgba(24, 80, 130, .68) !important;
+}
+.database-table tbody td:first-child {
+  background: rgba(8, 48, 91, .96) !important;
+  box-shadow: 5px 0 12px rgba(2, 22, 48, .34);
+}
+.database-table tbody td:first-child b,
+.database-table tbody td a,
+.database-table tbody td small,
+.database-table tbody td .record-timestamp {
+  color: #9beeff !important;
+}
+.database-table tbody td:first-child b { font-weight: 900; }
+.database-table tbody td a { text-decoration-color: rgba(155, 238, 255, .55); }
+.database-table tbody td .record-details summary { color: #c2f4ff; }
+.database-table tbody td .record-details dl { color: #e4f5ff; }
+.assessment-entry .assessment-input,
+.assessment-config-control input {
+  color: #e8f7ff;
+  background: rgba(8, 43, 81, .88);
+  border-color: rgba(112, 218, 235, .55);
+}
+.assessment-entry .assessment-input::placeholder,
+.assessment-config-control input::placeholder { color: rgba(209, 237, 248, .65); }
+.assessment-entry .assessment-interview-input { background: rgba(37, 129, 161, .38); border-color: #69d9ec; }
+.assessment-entry .assessment-exam-input { background: rgba(137, 104, 30, .30); border-color: #f0ca72; }
+.assessment-percentage,
+.assessment-weighted,
+.assessment-readonly span,
+.assessment-readonly b,
+.assessment-readonly strong {
+  border: 1px solid rgba(151, 227, 239, .28);
+  color: #e7fbff !important;
+  background: rgba(18, 103, 134, .46) !important;
+}
+.assessment-percentage { background: rgba(157, 117, 29, .48) !important; }
+.assessment-weighted,
+.assessment-readonly strong { background: rgba(18, 143, 111, .47) !important; }
+.assessment-readonly b { background: rgba(157, 117, 29, .48) !important; }
+.assessment-percentage::before,
+.assessment-weighted::before,
+.assessment-readonly span::before,
+.assessment-readonly b::before,
+.assessment-readonly strong::before { color: #bdeff6; }
+@media (max-width: 860px) {
+  .database-horizontal-scroll { display: none; }
+  .database-table { min-width: 0; }
+}
