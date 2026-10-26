@@ -1024,32 +1024,43 @@ if (teacherAgenda) {
   function renderAssessmentPanel(activeFilter) {
     if (!teacherAccess.role) { assessmentPanel.classList.add('hidden'); assessmentPanel.innerHTML = ''; return; }
     assessmentPanel.classList.remove('hidden');
+    const assessmentSpecialties = ['Ciberseguridad', 'Contabilidad', 'Ejecutivo Comercial y Servicio al Cliente', 'Mantenimiento de Sistemas de Aire Acondicionado Industrial', 'Electromecánica', 'Diseño de Productos Industriales Textiles'];
     const specialtySelected = activeFilter && activeFilter !== 'Todas';
-    const configuredTotal = specialtySelected ? assessmentConfigFor(activeFilter) : null;
-    const editable = canGradeAssessments() && specialtySelected;
+    const configSpecialty = specialtySelected ? activeFilter : '';
+    const configuredTotal = configSpecialty ? assessmentConfigFor(configSpecialty) : null;
+    const editable = canGradeAssessments() && Boolean(configSpecialty);
     const roleHint = teacherAccess.role === 'administrative'
       ? 'Consulta de solo lectura. Acceso solo para el Administrador o el departamento técnico autorizado para registrar calificaciones.'
       : specialtySelected
         ? 'Definí el puntaje máximo una vez para esta especialidad antes de ingresar los resultados de examen.'
-        : 'Seleccioná una especialidad técnica para definir el puntaje total de su prueba de admisión.';
+        : 'Elegí una especialidad técnica en este panel o en las pestañas de la base para habilitar el puntaje total.';
     assessmentPanel.innerHTML =
       '<div class="assessment-panel-head"><div><span class="assessment-kicker">Evaluación de admisión</span><h3>Entrevista 60 % + examen 40 %</h3><p>El resultado de la entrevista aporta hasta 60 puntos y el examen aporta hasta 40 puntos; juntos forman una nota sobre 100.</p></div><div class="assessment-formula"><b>Nota final</b><span>(Resultado entrevista × 0,60) + (Resultado examen × 0,40)</span></div></div>' +
-      '<div class="assessment-config"><div><label for="assessment-exam-total">Puntaje total de la prueba / examen de admisión</label><small>' + escapeHtml(roleHint) + '</small></div>' +
-      '<div class="assessment-config-control"><input id="assessment-exam-total" type="number" min="1" step="0.01" inputmode="decimal" placeholder="Ej. 100" value="' + (configuredTotal == null ? '' : escapeHtml(configuredTotal)) + '" ' + (editable ? '' : 'disabled') + '><button type="button" id="save-assessment-config" ' + (editable ? '' : 'disabled') + '>Guardar puntaje total</button></div></div>' +
+      '<div class="assessment-config"><div class="assessment-config-specialty">' +
+      (teacherAccess.role === 'admin' && !specialtySelected ? '<label for="assessment-config-specialty">Especialidad para configurar<select id="assessment-config-specialty"><option value="">Seleccioná una especialidad</option>' + assessmentSpecialties.map(name => '<option value="' + escapeHtml(name) + '">' + escapeHtml(name) + '</option>').join('') + '</select></label>' : '<span><b>Especialidad seleccionada</b><strong>' + escapeHtml(configSpecialty || allowedTeacherSpecialty() || '—') + '</strong></span>') +
+      '<small>' + escapeHtml(roleHint) + '</small></div><div><label for="assessment-exam-total">Puntaje total de la prueba / examen de admisión</label>' +
+      '<div class="assessment-config-control"><input id="assessment-exam-total" type="number" min="1" step="0.01" inputmode="decimal" placeholder="Ej. 100" value="' + (configuredTotal == null ? '' : escapeHtml(configuredTotal)) + '" ' + (editable ? '' : 'disabled') + '><button type="button" id="save-assessment-config" ' + (editable ? '' : 'disabled') + '>Guardar puntaje total</button></div></div></div>' +
       '<div class="assessment-legend"><span class="legend-interview">Entrevista · 60 %</span><span class="legend-exam">Examen · 40 %</span><span class="legend-weighted">Ponderado / Nota final</span></div>' +
       '<p class="assessment-explanation">Ingresá el resultado de la entrevista entre 0 y 100. El sistema lo convierte a un aporte máximo de 60 puntos; el examen se convierte a un aporte máximo de 40 puntos según su puntaje total, y ambos forman la nota final sobre 100.</p>';
+    const configSelector = $('#assessment-config-specialty', assessmentPanel);
+    configSelector?.addEventListener('change', () => {
+      if (!configSelector.value) return;
+      csvState.filter = configSelector.value;
+      renderDatabase();
+    });
     const saveConfig = $('#save-assessment-config', assessmentPanel);
     saveConfig?.addEventListener('click', async () => {
       const input = $('#assessment-exam-total', assessmentPanel);
       const total = assessmentNumber(input?.value);
-      if (!specialtySelected || total == null || total <= 0) { alert('Ingresá un puntaje total mayor que cero para la prueba de ' + (activeFilter || 'la especialidad') + '.'); return; }
+      const specialtyToSave = configSpecialty || configSelector?.value || allowedTeacherSpecialty() || '';
+      if (!specialtyToSave || total == null || total <= 0) { alert('Elegí una especialidad e ingresá un puntaje total mayor que cero.'); return; }
       saveConfig.disabled = true;
       saveConfig.textContent = 'Guardando…';
       try {
-        const result = await postInstitutional({ action: 'assessment-config', specialty: activeFilter, examTotal: total });
+        const result = await postInstitutional({ action: 'assessment-config', specialty: specialtyToSave, examTotal: total });
         hydrateAssessments(result.assessments);
         renderDatabase();
-        $('#db-source').textContent = 'Puntaje total guardado en la base institucional para ' + activeFilter + '.';
+        $('#db-source').textContent = 'Puntaje total guardado en la base institucional para ' + specialtyToSave + '.';
       } catch (error) {
         alert(error.message || 'No se pudo guardar el puntaje total.');
         saveConfig.disabled = false;
