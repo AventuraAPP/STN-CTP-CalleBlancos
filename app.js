@@ -5,7 +5,7 @@ const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector
 // público nunca contiene contraseñas: solo recibe un token de sesión temporal.
 const TEACHER_ADMIN_PASSWORD = null;
 const ADMINISTRATIVE_STAFF_PASSWORD = null;
-const SYNC_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyyeomXgKMvXwOJsZq3bjx56tJ0hRpmZcKJ8V9OAUgAOZdDUOJvpVzyd8WLNEcgJCjE/exec';
+const SYNC_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzHK7CGLMVmoP3LPDumanRMMIXRWy1DSfkd9N7zRaZGRUBBm0Ch0e4j5CyiHEqsSxmh/exec';
 const DEPARTMENT_PASSWORDS = Object.freeze({
   'Ciberseguridad': null,
   'Contabilidad': null,
@@ -699,7 +699,7 @@ if (teacherAgenda) {
   const reporting = document.createElement('section'); reporting.id = 'reporting-controls'; reporting.className = 'reporting-controls hidden'; reporting.innerHTML = '<div class="reporting-heading"><div><span>Informes institucionales</span><h3>Generar informe de estudiantes</h3><p>Aplicá los filtros requeridos y descargá el informe institucional en Excel, Word o como versión lista para imprimir/PDF.</p></div><span class="report-access">Administrador y personal administrativo</span></div><div class="report-filter-grid"><label>Especialidad<select id="report-specialty"><option value="Todas">Todas las especialidades</option></select></label><label>Estado<select id="report-status"><option value="Todas">Todos los estados</option></select></label><label>Provincia<select id="report-province"><option value="Todas">Todas las provincias</option></select></label><label>Cantón<select id="report-canton"><option value="Todas">Todos los cantones</option></select></label><label>Desde<input id="report-from" type="date"></label><label>Hasta<input id="report-to" type="date"></label><label>Ordenar por<select id="report-order"><option value="alphabetical">Nombre: A a Z</option><option value="date-desc">Fecha: más reciente</option><option value="date-asc">Fecha: más antigua</option></select></label><label class="report-query">Buscar en todos los campos<input id="report-query" type="search" placeholder="Nombre, cédula, correo, teléfono…"></label></div><fieldset class="report-fields"><legend>Campos adicionales que se incluirán en el informe</legend><label><input type="checkbox" data-report-field="phone" checked> Teléfono</label><label><input type="checkbox" data-report-field="address" checked> Dirección</label><label><input type="checkbox" data-report-field="accommodations" checked> Adecuación curricular</label><label><input type="checkbox" data-report-field="age" checked> Edad</label><label><input type="checkbox" data-report-field="education" checked> Estudios</label><label><input type="checkbox" data-report-field="children" checked> Hijos</label><label><input type="checkbox" data-report-field="country" checked> País de origen</label></fieldset><div class="report-actions"><button id="report-preview" type="button">▣ Vista para imprimir / PDF</button><button id="report-excel" type="button">⇩ Descargar Excel</button><button id="report-word" type="button">⇩ Descargar Word</button><small id="report-count">0 registros seleccionados</small></div></section>';
   const adminOnlyNotice = document.createElement('p'); adminOnlyNotice.id = 'admin-only-notice'; adminOnlyNotice.className = 'admin-only-notice hidden'; adminOnlyNotice.textContent = 'Acceso solo para el Administrador: la importación de bases, las contraseñas y la eliminación de registros requieren la cuenta administrativa.';
   searchBar.after(reporting); reporting.after(adminOnlyNotice);
-  const db = document.createElement('section'); db.className = 'database-summary'; db.id = 'database-summary'; db.innerHTML = '<div><b id="db-total">0</b><span>Registros CSV</span></div><div><b id="db-visible">0</b><span>En esta especialidad</span></div><div><b id="db-duplicates">0</b><span>Duplicados detectados</span></div><p id="db-source">Importá la base CSV desde este dispositivo para ver prematrícula y matrícula. La información no se publica.</p><section class="teacher-duplicate-summary" id="teacher-duplicate-list" aria-live="polite"></section><div class="database-table-wrap"><table class="database-table"><thead><tr><th>Estudiante</th><th>Identificación</th><th>Especialidad</th><th>Contacto</th><th>Estado</th><th>Acción</th></tr></thead><tbody id="csv-table-body"><tr><td colspan="6">No hay datos cargados.</td></tr></tbody></table></div>'; searchBar.after(db);
+  const db = document.createElement('section'); db.className = 'database-summary'; db.id = 'database-summary'; db.innerHTML = '<div><b id="db-total">0</b><span>Registros institucionales</span></div><div><b id="db-visible">0</b><span>En esta especialidad</span></div><div><b id="db-duplicates">0</b><span>Duplicados detectados</span></div><p id="db-source">Los registros se consultan automáticamente desde la base institucional centralizada.</p><section class="teacher-duplicate-summary" id="teacher-duplicate-list" aria-live="polite"></section><div class="database-table-wrap"><table class="database-table"><thead><tr><th>Estudiante</th><th>Identificación</th><th>Especialidad</th><th>Contacto</th><th>Estado y duplicados</th><th>Entrevista (60 %)</th><th>Puntaje examen</th><th>Porcentaje examen (40 %)</th><th>Ponderado / Nota</th><th>Acción</th></tr></thead><tbody id="csv-table-body"><tr><td colspan="10">No hay datos cargados.</td></tr></tbody></table></div>'; searchBar.after(db);
   function csvParse(text) { const rows = [], row = []; let cell = '', quoted = false; for (let i = 0; i < text.length; i++) { const ch = text[i], next = text[i + 1]; if (ch === '"' && quoted && next === '"') { cell += '"'; i++; } else if (ch === '"') quoted = !quoted; else if (ch === ',' && !quoted) { row.push(cell); cell = ''; } else if ((ch === '\n' || ch === '\r') && !quoted) { if (ch === '\r' && next === '\n') i++; row.push(cell); if (row.some(v => v.trim())) rows.push(row.splice(0)); cell = ''; } else cell += ch; } if (cell || row.length) { row.push(cell); rows.push(row); } const headers = (rows.shift() || []).map(h => h.replace(/^\uFEFF/, '').trim()); return rows.map(values => Object.fromEntries(headers.map((h, i) => [h, (values[i] || '').trim()]))); }
   function field(record, matcher) { const key = Object.keys(record).find(k => matcher.test(k)); return key ? record[key] : ''; }
   function normalizeSpecialty(value) { const v = String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); if (v.includes('refriger') || v.includes('aire acondicionado')) return 'Mantenimiento de Sistemas de Aire Acondicionado Industrial'; if (v.includes('ciber')) return 'Ciberseguridad'; if (v.includes('contab')) return 'Contabilidad'; if (v.includes('comercial') || v.includes('servicio al cliente')) return 'Ejecutivo Comercial y Servicio al Cliente'; if (v.includes('textil') || v.includes('diseno de productos')) return 'Diseño de Productos Industriales Textiles'; if (v.includes('electrom')) return 'Electromecánica'; return value || 'Sin especialidad'; }
@@ -754,7 +754,7 @@ if (teacherAgenda) {
       settled = true;
       try {
         const headers = payload.headers || [];
-        const snapshot = JSON.stringify([headers, payload.rows]);
+        const snapshot = JSON.stringify([headers, payload.rows, payload.assessments || {}]);
         // La consulta automática no vuelve a pintar nada si la fuente no cambió.
         if (snapshot !== lastRemoteSnapshot) {
           lastRemoteSnapshot = snapshot;
@@ -764,6 +764,7 @@ if (teacherAgenda) {
             saveAppointments([...getAppointments(), ...payload.appointments]);
             updateDashboard();
           }
+          hydrateAssessments(payload.assessments || {});
           const recordsToDisplay = prepareRecords(raw);
           csvState.records.splice(0, csvState.records.length, ...recordsToDisplay);
           renderDatabase();
@@ -953,6 +954,150 @@ if (teacherAgenda) {
     const uniqueSpecialties = [...new Set((specialties || []).filter(Boolean))];
     return `<div class="duplicate-badge"><span class="duplicate-label">Duplicado en</span><span class="duplicate-specialties">${uniqueSpecialties.map(specialty => `<span class="duplicate-specialty">${escapeHtml(specialty)}</span>`).join('')}</span></div>`;
   }
+
+  const assessmentPanel = document.createElement('section');
+  assessmentPanel.className = 'assessment-panel hidden';
+  assessmentPanel.id = 'assessment-panel';
+  db.before(assessmentPanel);
+  const assessmentState = { configs: Object.create(null), records: Object.create(null) };
+  const assessmentNumber = value => {
+    const parsed = Number(String(value == null ? '' : value).trim().replace(',', '.'));
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+  const assessmentKeyText = value => String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+  const assessmentDisplay = value => value == null || value === '' || !Number.isFinite(Number(value)) ? '—' : Number(value).toLocaleString('es-CR', { maximumFractionDigits: 2 });
+  const canGradeAssessments = () => teacherAccess.role === 'admin' || teacherAccess.role === 'department';
+  const canGradeRecord = record => canGradeAssessments() && (!allowedTeacherSpecialty() || record.specialty === allowedTeacherSpecialty());
+  function hydrateAssessments(payload) {
+    assessmentState.configs = payload && payload.configs && typeof payload.configs === 'object' ? payload.configs : Object.create(null);
+    assessmentState.records = payload && payload.records && typeof payload.records === 'object' ? payload.records : Object.create(null);
+  }
+  function assessmentForRecord(record) {
+    const syncId = String(record.syncId || record.raw?.['ID de sincronización'] || '');
+    const id = assessmentKeyText(record.id);
+    const name = assessmentKeyText(record.name);
+    const specialty = assessmentKeyText(record.specialty);
+    return Object.values(assessmentState.records).find(item => {
+      if (syncId && String(item.syncId || '') === syncId) return true;
+      return assessmentKeyText(item.identification) === id && assessmentKeyText(item.name) === name && assessmentKeyText(item.specialty) === specialty;
+    }) || null;
+  }
+  function assessmentConfigFor(specialty) {
+    const exact = assessmentState.configs[specialty];
+    if (exact) return assessmentNumber(exact.total);
+    const key = assessmentKeyText(specialty);
+    const match = Object.entries(assessmentState.configs).find(([name]) => assessmentKeyText(name) === key);
+    return match ? assessmentNumber(match[1]?.total) : null;
+  }
+  async function postInstitutional(payload) {
+    const response = await fetch(SYNC_ENDPOINT, {
+      method: 'POST',
+      mode: 'cors',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8', Accept: 'application/json' },
+      body: JSON.stringify({ ...payload, authToken: getAuthToken() })
+    });
+    if (!response.ok) throw new Error('No se recibió confirmación del servidor institucional.');
+    const result = await response.json();
+    if (!result?.ok) throw new Error(result?.message || 'La base institucional rechazó la actualización.');
+    return result;
+  }
+  function calculateAssessment(interview, examScore, examTotal) {
+    if (interview == null || examScore == null || examTotal == null || examTotal <= 0) return null;
+    const percentage = Math.round((examScore / examTotal * 100) * 100) / 100;
+    const weighted = Math.round((interview * 0.60 + percentage * 0.40) * 100) / 100;
+    return { percentage, weighted };
+  }
+  function renderAssessmentPanel(activeFilter) {
+    if (!teacherAccess.role) { assessmentPanel.classList.add('hidden'); assessmentPanel.innerHTML = ''; return; }
+    assessmentPanel.classList.remove('hidden');
+    const specialtySelected = activeFilter && activeFilter !== 'Todas';
+    const configuredTotal = specialtySelected ? assessmentConfigFor(activeFilter) : null;
+    const editable = canGradeAssessments() && specialtySelected;
+    const roleHint = teacherAccess.role === 'administrative'
+      ? 'Consulta de solo lectura. Acceso solo para el Administrador o el departamento técnico autorizado para registrar calificaciones.'
+      : specialtySelected
+        ? 'Definí el puntaje máximo una vez para esta especialidad antes de ingresar los resultados de examen.'
+        : 'Seleccioná una especialidad técnica para definir el puntaje total de su prueba de admisión.';
+    assessmentPanel.innerHTML =
+      '<div class="assessment-panel-head"><div><span class="assessment-kicker">Evaluación de admisión</span><h3>Entrevista 60 % + examen 40 %</h3><p>La nota ponderada se calcula automáticamente a partir de ambos componentes.</p></div><div class="assessment-formula"><b>Nota final</b><span>(Entrevista × 0,60) + (Porcentaje de examen × 0,40)</span></div></div>' +
+      '<div class="assessment-config"><div><label for="assessment-exam-total">Puntaje total de la prueba / examen de admisión</label><small>' + escapeHtml(roleHint) + '</small></div>' +
+      '<div class="assessment-config-control"><input id="assessment-exam-total" type="number" min="1" step="0.01" inputmode="decimal" placeholder="Ej. 100" value="' + (configuredTotal == null ? '' : escapeHtml(configuredTotal)) + '" ' + (editable ? '' : 'disabled') + '><button type="button" id="save-assessment-config" ' + (editable ? '' : 'disabled') + '>Guardar puntaje total</button></div></div>' +
+      '<div class="assessment-legend"><span class="legend-interview">Entrevista · 60 %</span><span class="legend-exam">Examen · 40 %</span><span class="legend-weighted">Ponderado / Nota final</span></div>' +
+      '<p class="assessment-explanation">Ingresá la entrevista como porcentaje entre 0 y 100. El sistema transforma automáticamente el puntaje del examen al porcentaje correspondiente según el total configurado; luego calcula la nota final sobre 100.</p>';
+    const saveConfig = $('#save-assessment-config', assessmentPanel);
+    saveConfig?.addEventListener('click', async () => {
+      const input = $('#assessment-exam-total', assessmentPanel);
+      const total = assessmentNumber(input?.value);
+      if (!specialtySelected || total == null || total <= 0) { alert('Ingresá un puntaje total mayor que cero para la prueba de ' + (activeFilter || 'la especialidad') + '.'); return; }
+      saveConfig.disabled = true;
+      saveConfig.textContent = 'Guardando…';
+      try {
+        const result = await postInstitutional({ action: 'assessment-config', specialty: activeFilter, examTotal: total });
+        hydrateAssessments(result.assessments);
+        renderDatabase();
+        $('#db-source').textContent = 'Puntaje total guardado en la base institucional para ' + activeFilter + '.';
+      } catch (error) {
+        alert(error.message || 'No se pudo guardar el puntaje total.');
+        saveConfig.disabled = false;
+        saveConfig.textContent = 'Guardar puntaje total';
+      }
+    });
+  }
+  function assessmentInputs(record) {
+    const score = assessmentForRecord(record);
+    const total = assessmentConfigFor(record.specialty);
+    const editable = canGradeRecord(record);
+    const interview = score ? assessmentNumber(score.interview) : null;
+    const exam = score ? assessmentNumber(score.examScore) : null;
+    const calculated = calculateAssessment(interview, exam, total || assessmentNumber(score?.examTotal));
+    if (!editable) return '<div class="assessment-readonly"><span>' + assessmentDisplay(interview) + ' %</span><span>' + assessmentDisplay(exam) + (total ? ' / ' + assessmentDisplay(total) : '') + '</span><b>' + assessmentDisplay(calculated?.percentage) + ' %</b><strong>' + assessmentDisplay(calculated?.weighted) + '</strong></div>';
+    const totalText = total == null ? 'Configurá el total' : 'de ' + assessmentDisplay(total);
+    return '<div class="assessment-entry" data-assessment-row="' + record.index + '" data-exam-total="' + (total == null ? '' : total) + '">' +
+      '<label><input class="assessment-input assessment-interview-input" data-assessment-interview type="number" min="0" max="100" step="0.01" inputmode="decimal" value="' + (interview == null ? '' : interview) + '" placeholder="0–100"><small>% entrevista</small></label>' +
+      '<label><input class="assessment-input assessment-exam-input" data-assessment-exam type="number" min="0" ' + (total == null ? 'disabled' : 'max="' + total + '"') + ' step="0.01" inputmode="decimal" value="' + (exam == null ? '' : exam) + '" placeholder="' + escapeHtml(totalText) + '"><small>puntos</small></label>' +
+      '<span class="assessment-percentage" data-assessment-percentage>' + assessmentDisplay(calculated?.percentage) + (calculated ? ' %' : '—') + '</span>' +
+      '<span class="assessment-weighted" data-assessment-weighted>' + assessmentDisplay(calculated?.weighted) + '</span>' +
+      '<button type="button" class="assessment-save" data-assessment-save="' + record.index + '"' + (total == null ? ' disabled title="Configurá el puntaje total primero"' : '') + '>Guardar nota</button></div>';
+  }
+  function refreshAssessmentPreview(container) {
+    const total = assessmentNumber(container.dataset.examTotal);
+    const interview = assessmentNumber($('[data-assessment-interview]', container)?.value);
+    const exam = assessmentNumber($('[data-assessment-exam]', container)?.value);
+    const calculated = calculateAssessment(interview, exam, total);
+    const percentage = $('[data-assessment-percentage]', container);
+    const weighted = $('[data-assessment-weighted]', container);
+    if (percentage) percentage.textContent = calculated ? assessmentDisplay(calculated.percentage) + ' %' : '—';
+    if (weighted) weighted.textContent = calculated ? assessmentDisplay(calculated.weighted) : '—';
+  }
+  async function saveAssessment(recordIndex, button) {
+    const record = csvState.records.find(item => item.index === Number(recordIndex));
+    const container = button.closest('[data-assessment-row]');
+    const total = assessmentNumber(container?.dataset.examTotal);
+    const interview = assessmentNumber($('[data-assessment-interview]', container)?.value);
+    const examScore = assessmentNumber($('[data-assessment-exam]', container)?.value);
+    if (!record || total == null || interview == null || interview < 0 || interview > 100 || examScore == null || examScore < 0 || examScore > total) {
+      alert('Completá una entrevista entre 0 y 100 y un puntaje de examen válido según el total configurado.');
+      return;
+    }
+    button.disabled = true;
+    button.textContent = 'Guardando…';
+    try {
+      const result = await postInstitutional({ action: 'assessment', syncId: record.syncId || record.raw?.['ID de sincronización'] || '', identification: record.id || '', name: record.name || '', specialty: record.specialty, interview, examScore, examTotal: total });
+      hydrateAssessments(result.assessments);
+      renderDatabase();
+      $('#db-source').textContent = 'Nota de ' + record.name + ' guardada y confirmada en la base institucional.';
+    } catch (error) {
+      button.disabled = false;
+      button.textContent = 'Guardar nota';
+      alert(error.message || 'No se pudo guardar la evaluación.');
+    }
+  }
+  function bindAssessmentEvents() {
+    $$('.assessment-input', db).forEach(input => input.addEventListener('input', () => refreshAssessmentPreview(input.closest('[data-assessment-row]'))));
+    $$('.assessment-save', db).forEach(button => button.addEventListener('click', () => saveAssessment(button.dataset.assessmentSave, button)));
+  }
+
   function renderDatabase() {
     const activeFilter = allowedTeacherSpecialty() || csvState.filter;
     const search = normalizeSearchText(csvState.search);
@@ -963,25 +1108,37 @@ if (teacherAgenda) {
     $('#db-visible').textContent = rows.length;
     $('#db-duplicates').textContent = duplicateCount;
     updateDatabaseCounters();
-    $('#db-source').textContent = csvState.records.length ? `Base institucional · filtro: ${activeFilter}${search ? ` · búsqueda: ${csvState.search.trim()}` : ''}` : 'Consultando la base institucional…';
+    $('#db-source').textContent = csvState.records.length ? 'Base institucional · filtro: ' + activeFilter + (search ? ' · búsqueda: ' + csvState.search.trim() : '') : 'Consultando la base institucional…';
+    renderAssessmentPanel(activeFilter);
     const uniqueDuplicates = [...new Map(rows.filter(r => r.duplicate && r.duplicateSpecialties.length > 1).map(r => [r.id || r.name, r])).values()];
     $('#teacher-duplicate-list').innerHTML = uniqueDuplicates.length
-      ? `<div class="teacher-duplicate-head"><div><span>Revisión por especialidad</span><h3>Estudiantes registrados en más de una especialidad</h3><p>Verificá estos casos antes de programar entrevistas o exámenes.</p></div><b>${uniqueDuplicates.length}</b></div><div class="duplicate-list-grid">${uniqueDuplicates.map(r => `<article class="duplicate-card"><strong>${escapeHtml(r.name)}</strong><small>${escapeHtml(r.id || 'Identificación no registrada')}</small><div class="duplicate-card-specialties">${r.duplicateSpecialties.map(s => `<span>${escapeHtml(s)}</span>`).join('')}</div></article>`).join('')}</div>`
-      : `<div class="teacher-duplicate-empty"><b>✓ Sin duplicados en ${escapeHtml(activeFilter)}</b><span>Los registros visibles pertenecen a una única especialidad.</span></div>`;
-    $('#csv-table-body').innerHTML = rows.length ? rows.map(r => { const viewKey = recordViewKey(r); return `<tr class="${r.duplicate ? 'is-duplicate' : ''}"><td><b>${escapeHtml(r.name)}</b><details class="record-details" data-detail-key="${escapeHtml(viewKey)}"${expandedRecordKeys.has(viewKey) ? ' open' : ''}><summary>Ver todos los datos</summary><dl>${Object.entries(r.raw).map(([k, v]) => `<dt>${escapeHtml(k)}</dt><dd>${renderRecordField(k, v)}</dd>`).join('')}</dl></details></td><td>${escapeHtml(r.id || '—')}</td><td>${escapeHtml(r.specialty)}</td><td><a href="mailto:${encodeURIComponent(r.email)}">${escapeHtml(r.email || '—')}</a><small>${escapeHtml(r.phone || '')}</small></td><td><span class="new-status-badge">${escapeHtml(r.isNew ? 'NUEVO · PREMATRICULADO' : (r.status || 'Registrado'))}</span><small class="record-timestamp">${escapeHtml(r.timestamp || 'Fecha no disponible')}</small></td><td>${r.duplicate ? duplicateSpecialtyMarkup(r.duplicateSpecialties) : '<span class="ok-badge">Registro único</span>'}</td><td><button class="table-action" data-record="${r.index}" type="button">Agendar</button>${teacherAccess.role === 'admin' ? `<button class="table-delete database-delete" data-record-delete="${r.index}" type="button">Eliminar</button>` : ''}</td></tr>`; }).join('') : '<tr><td colspan="7">No hay registros para esta búsqueda o especialidad.</td></tr>';
+      ? '<div class="teacher-duplicate-head"><div><span>Revisión por especialidad</span><h3>Estudiantes registrados en más de una especialidad</h3><p>Verificá estos casos antes de programar entrevistas o exámenes.</p></div><b>' + uniqueDuplicates.length + '</b></div><div class="duplicate-list-grid">' + uniqueDuplicates.map(r => '<article class="duplicate-card"><strong>' + escapeHtml(r.name) + '</strong><small>' + escapeHtml(r.id || 'Identificación no registrada') + '</small><div class="duplicate-card-specialties">' + r.duplicateSpecialties.map(s => '<span>' + escapeHtml(s) + '</span>').join('') + '</div></article>').join('') + '</div>'
+      : '<div class="teacher-duplicate-empty"><b>✓ Sin duplicados en ' + escapeHtml(activeFilter) + '</b><span>Los registros visibles pertenecen a una única especialidad.</span></div>';
+    $('#csv-table-body').innerHTML = rows.length ? rows.map(r => {
+      const viewKey = recordViewKey(r);
+      const duplicateInfo = r.duplicate ? duplicateSpecialtyMarkup(r.duplicateSpecialties) : '<span class="ok-badge">Registro único</span>';
+      const action = '<button class="table-action" data-record="' + r.index + '" type="button">Agendar</button>' + (teacherAccess.role === 'admin' ? '<button class="table-delete database-delete" data-record-delete="' + r.index + '" type="button">Eliminar</button>' : '');
+      return '<tr class="' + (r.duplicate ? 'is-duplicate' : '') + '"><td data-label="Estudiante"><b>' + escapeHtml(r.name) + '</b><details class="record-details" data-detail-key="' + escapeHtml(viewKey) + '"' + (expandedRecordKeys.has(viewKey) ? ' open' : '') + '><summary>Ver todos los datos</summary><dl>' + Object.entries(r.raw).map(([k, v]) => '<dt>' + escapeHtml(k) + '</dt><dd>' + renderRecordField(k, v) + '</dd>').join('') + '</dl></details></td><td data-label="Identificación">' + escapeHtml(r.id || '—') + '</td><td data-label="Especialidad">' + escapeHtml(r.specialty) + '</td><td data-label="Contacto"><a href="mailto:' + encodeURIComponent(r.email) + '">' + escapeHtml(r.email || '—') + '</a><small>' + escapeHtml(r.phone || '') + '</small></td><td data-label="Estado y duplicados"><span class="new-status-badge">' + escapeHtml(r.isNew ? 'NUEVO · PREMATRICULADO' : (r.status || 'Registrado')) + '</span><small class="record-timestamp">' + escapeHtml(r.timestamp || 'Fecha no disponible') + '</small><div class="duplicate-inline">' + duplicateInfo + '</div></td><td data-label="Evaluación de admisión" colspan="4">' + assessmentInputs(r) + '</td><td data-label="Acción">' + action + '</td></tr>';
+    }).join('') : '<tr><td colspan="10">No hay registros para esta búsqueda o especialidad.</td></tr>';
     $$('.record-details', db).forEach(details => details.addEventListener('toggle', () => {
       const key = details.dataset.detailKey;
       if (!key) return;
       if (details.open) expandedRecordKeys.add(key); else expandedRecordKeys.delete(key);
     }));
-    $$('.table-action', db).forEach(btn => btn.addEventListener('click', () => { const r = csvState.records.find(x => x.index === Number(btn.dataset.record)); if (!r || (allowedTeacherSpecialty() && r.specialty !== allowedTeacherSpecialty())) return; $('#teacher-candidate').value = r.name; $('#teacher-candidate-email').value = r.email; $('#teacher-candidate-contact').value = r.phone; $('#teacher-specialty').value = r.specialty; teacherAgenda.scrollIntoView({ behavior: 'smooth', block: 'center' }); }));
+    $$('.table-action', db).forEach(btn => btn.addEventListener('click', () => {
+      const r = csvState.records.find(x => x.index === Number(btn.dataset.record));
+      if (!r || (allowedTeacherSpecialty() && r.specialty !== allowedTeacherSpecialty())) return;
+      $('#teacher-candidate').value = r.name;
+      $('#teacher-candidate-email').value = r.email;
+      $('#teacher-candidate-contact').value = r.phone;
+      $('#teacher-specialty').value = r.specialty;
+      teacherAgenda.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }));
     $$('.database-delete', db).forEach(btn => btn.addEventListener('click', () => {
       if (teacherAccess.role !== 'admin') return;
       const record = csvState.records.find(x => x.index === Number(btn.dataset.recordDelete));
-      if (!record) return;
-      if (!window.confirm(`¿Confirmás eliminar a ${record.name} de la base de datos? Esta acción no se puede deshacer.`)) return;
-      btn.disabled = true;
-      btn.textContent = 'Eliminando…';
+      if (!record || !window.confirm('¿Confirmás eliminar a ' + record.name + ' de la base de datos? Esta acción no se puede deshacer.')) return;
+      btn.disabled = true; btn.textContent = 'Eliminando…';
       $('#db-source').textContent = 'Solicitando eliminación a la base institucional…';
       deletePrematriculaFromRemote(record).then(result => {
         if (!result?.ok) throw new Error(result?.message || 'El servidor no confirmó la eliminación.');
@@ -989,14 +1146,14 @@ if (teacherAgenda) {
         $('#db-source').textContent = 'Eliminación confirmada en la base institucional · actualizando datos…';
         window.setTimeout(() => loadTeacherDatabaseForSession?.(), 500);
       }).catch(error => {
-        btn.disabled = false;
-        btn.textContent = 'Eliminar';
-        $('#db-source').textContent = `No se pudo confirmar la eliminación: ${error.message || 'intentá de nuevo.'}`;
+        btn.disabled = false; btn.textContent = 'Eliminar';
+        $('#db-source').textContent = 'No se pudo confirmar la eliminación: ' + (error.message || 'intentá de nuevo.');
       });
     }));
+    bindAssessmentEvents();
     if (hasInstitutionalOverview()) updateReportFilters();
   }
-  $('#student-search').addEventListener('input', e => { csvState.search = e.target.value; renderDatabase(); });
+    $('#student-search').addEventListener('input', e => { csvState.search = e.target.value; renderDatabase(); });
   $('#clear-student-search').addEventListener('click', () => { csvState.search = ''; $('#student-search').value = ''; renderDatabase(); $('#student-search').focus(); });
   ['specialty', 'status', 'province', 'canton', 'from', 'to', 'order', 'query'].forEach(name => reportField(name)?.addEventListener(name === 'query' ? 'input' : 'change', event => { reportState[name] = event.target.value; const count = $('#report-count'); if (count) { const rows = getReportRows(); count.textContent = `${rows.length} registro${rows.length === 1 ? '' : 's'} seleccionado${rows.length === 1 ? '' : 's'}`; } }));
   $$('[data-report-field]', reporting).forEach(input => input.addEventListener('change', event => { reportState.fields[event.currentTarget.dataset.reportField] = event.currentTarget.checked; }));
