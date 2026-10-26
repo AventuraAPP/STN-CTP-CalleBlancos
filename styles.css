@@ -269,3 +269,32 @@
   .assessment-entry { grid-template-columns: 1fr; }
   .assessment-readonly { grid-template-columns: 1fr; }
 }
+
+/* Tabla de evaluación: el estudiante permanece visible al desplazarse horizontalmente. */
+.database-table-wrap { position: relative; }
+.database-table th:first-child,
+.database-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: #ffffff;
+  box-shadow: 5px 0 12px rgba(8, 52, 88, .12);
+}
+.database-table th:first-child { background: #123d70; color: #fff; z-index: 5; }
+.database-table tr.is-duplicate td:first-child { background: #fff8fc; }
+.database-table td:first-child b { display: block; color: #0b426e; min-width: 185px; }
+.database-table thead th:nth-child(6),
+.database-table thead th:nth-child(7),
+.database-table thead th:nth-child(8),
+.database-table thead th:nth-child(9) { min-width: 128px; }
+.assessment-entry small { line-height: 1.2; }
+.assessment-entry .assessment-percentage::before { content: 'Aporte examen '; display: block; font-size: .63rem; font-weight: 700; opacity: .82; }
+.assessment-entry .assessment-weighted::before { content: 'Nota final '; display: block; font-size: .63rem; font-weight: 700; opacity: .82; }
+.assessment-readonly span:first-child::before { content: 'Entrevista '; display: block; font-size: .63rem; font-weight: 700; }
+.assessment-readonly span:nth-child(2)::before { content: 'Examen '; display: block; font-size: .63rem; font-weight: 700; }
+.assessment-readonly b::before { content: 'Aporte examen '; display: block; font-size: .63rem; font-weight: 700; }
+.assessment-readonly strong::before { content: 'Nota final '; display: block; font-size: .63rem; font-weight: 700; }
+@media (max-width: 860px) {
+  .database-table th:first-child, .database-table td:first-child { position: static; box-shadow: none; }
+  .database-table td:first-child b { min-width: 0; }
+}
