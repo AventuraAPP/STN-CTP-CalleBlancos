@@ -413,7 +413,9 @@ function getDocs() { return JSON.parse(localStorage.getItem('stn-documents') || 
 // que una limpieza de caché o una nueva computadora no borre el historial.
 // Solo se incluyen datos completos que fueron verificados en el historial
 // operativo de la STN; no se inventan reservas que no tengan fecha y hora.
-// Las citas históricas se consultan desde la base institucional autenticada.\nlet HISTORICAL_APPOINTMENTS = Object.freeze([]);\nconst DELETED_APPOINTMENTS_KEY = 'stn-deleted-appointments';
+// Las citas históricas se consultan desde la base institucional autenticada.
+let HISTORICAL_APPOINTMENTS = Object.freeze([]);
+const DELETED_APPOINTMENTS_KEY = 'stn-deleted-appointments';
 function readDeletedAppointmentKeys() {
   try {
     const value = JSON.parse(localStorage.getItem(DELETED_APPOINTMENTS_KEY) || '[]');
