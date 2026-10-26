@@ -1005,8 +1005,10 @@ if (teacherAgenda) {
   function calculateAssessment(interview, examScore, examTotal) {
     if (interview == null || examScore == null || examTotal == null || examTotal <= 0) return null;
     const percentage = Math.round((examScore / examTotal * 100) * 100) / 100;
-    const weighted = Math.round((interview * 0.60 + percentage * 0.40) * 100) / 100;
-    return { percentage, weighted };
+    const interviewContribution = Math.round((interview * 0.60) * 100) / 100;
+    const examContribution = Math.round((percentage * 0.40) * 100) / 100;
+    const weighted = Math.round((interviewContribution + examContribution) * 100) / 100;
+    return { percentage, interviewContribution, examContribution, weighted };
   }
   function renderAssessmentPanel(activeFilter) {
     if (!teacherAccess.role) { assessmentPanel.classList.add('hidden'); assessmentPanel.innerHTML = ''; return; }
@@ -1020,11 +1022,11 @@ if (teacherAgenda) {
         ? 'Definí el puntaje máximo una vez para esta especialidad antes de ingresar los resultados de examen.'
         : 'Seleccioná una especialidad técnica para definir el puntaje total de su prueba de admisión.';
     assessmentPanel.innerHTML =
-      '<div class="assessment-panel-head"><div><span class="assessment-kicker">Evaluación de admisión</span><h3>Entrevista 60 % + examen 40 %</h3><p>La nota ponderada se calcula automáticamente a partir de ambos componentes.</p></div><div class="assessment-formula"><b>Nota final</b><span>(Entrevista × 0,60) + (Porcentaje de examen × 0,40)</span></div></div>' +
+      '<div class="assessment-panel-head"><div><span class="assessment-kicker">Evaluación de admisión</span><h3>Entrevista 60 % + examen 40 %</h3><p>El resultado de la entrevista aporta hasta 60 puntos y el examen aporta hasta 40 puntos; juntos forman una nota sobre 100.</p></div><div class="assessment-formula"><b>Nota final</b><span>(Resultado entrevista × 0,60) + (Resultado examen × 0,40)</span></div></div>' +
       '<div class="assessment-config"><div><label for="assessment-exam-total">Puntaje total de la prueba / examen de admisión</label><small>' + escapeHtml(roleHint) + '</small></div>' +
       '<div class="assessment-config-control"><input id="assessment-exam-total" type="number" min="1" step="0.01" inputmode="decimal" placeholder="Ej. 100" value="' + (configuredTotal == null ? '' : escapeHtml(configuredTotal)) + '" ' + (editable ? '' : 'disabled') + '><button type="button" id="save-assessment-config" ' + (editable ? '' : 'disabled') + '>Guardar puntaje total</button></div></div>' +
       '<div class="assessment-legend"><span class="legend-interview">Entrevista · 60 %</span><span class="legend-exam">Examen · 40 %</span><span class="legend-weighted">Ponderado / Nota final</span></div>' +
-      '<p class="assessment-explanation">Ingresá la entrevista como porcentaje entre 0 y 100. El sistema transforma automáticamente el puntaje del examen al porcentaje correspondiente según el total configurado; luego calcula la nota final sobre 100.</p>';
+      '<p class="assessment-explanation">Ingresá el resultado de la entrevista entre 0 y 100. El sistema lo convierte a un aporte máximo de 60 puntos; el examen se convierte a un aporte máximo de 40 puntos según su puntaje total, y ambos forman la nota final sobre 100.</p>';
     const saveConfig = $('#save-assessment-config', assessmentPanel);
     saveConfig?.addEventListener('click', async () => {
       const input = $('#assessment-exam-total', assessmentPanel);
@@ -1051,13 +1053,13 @@ if (teacherAgenda) {
     const interview = score ? assessmentNumber(score.interview) : null;
     const exam = score ? assessmentNumber(score.examScore) : null;
     const calculated = calculateAssessment(interview, exam, total || assessmentNumber(score?.examTotal));
-    if (!editable) return '<div class="assessment-readonly"><span>' + assessmentDisplay(interview) + ' %</span><span>' + assessmentDisplay(exam) + (total ? ' / ' + assessmentDisplay(total) : '') + '</span><b>' + assessmentDisplay(calculated?.percentage) + ' %</b><strong>' + assessmentDisplay(calculated?.weighted) + '</strong></div>';
+    if (!editable) return '<div class="assessment-readonly"><span>' + (calculated ? assessmentDisplay(calculated.interviewContribution) + ' / 60' : '—') + '</span><span>' + assessmentDisplay(exam) + (total ? ' / ' + assessmentDisplay(total) : '') + '</span><b>' + (calculated ? assessmentDisplay(calculated.examContribution) + ' / 40' : '—') + '</b><strong>' + (calculated ? assessmentDisplay(calculated.weighted) + ' / 100' : '—') + '</strong></div>';
     const totalText = total == null ? 'Configurá el total' : 'de ' + assessmentDisplay(total);
     return '<div class="assessment-entry" data-assessment-row="' + record.index + '" data-exam-total="' + (total == null ? '' : total) + '">' +
-      '<label><input class="assessment-input assessment-interview-input" data-assessment-interview type="number" min="0" max="100" step="0.01" inputmode="decimal" value="' + (interview == null ? '' : interview) + '" placeholder="0–100"><small>% entrevista</small></label>' +
-      '<label><input class="assessment-input assessment-exam-input" data-assessment-exam type="number" min="0" ' + (total == null ? 'disabled' : 'max="' + total + '"') + ' step="0.01" inputmode="decimal" value="' + (exam == null ? '' : exam) + '" placeholder="' + escapeHtml(totalText) + '"><small>puntos</small></label>' +
-      '<span class="assessment-percentage" data-assessment-percentage>' + assessmentDisplay(calculated?.percentage) + (calculated ? ' %' : '—') + '</span>' +
-      '<span class="assessment-weighted" data-assessment-weighted>' + assessmentDisplay(calculated?.weighted) + '</span>' +
+      '<label><input class="assessment-input assessment-interview-input" data-assessment-interview type="number" min="0" max="100" step="0.01" inputmode="decimal" value="' + (interview == null ? '' : interview) + '" placeholder="0–100"><small>Resultado · aporta hasta 60</small></label>' +
+      '<label><input class="assessment-input assessment-exam-input" data-assessment-exam type="number" min="0" ' + (total == null ? 'disabled' : 'max="' + total + '"') + ' step="0.01" inputmode="decimal" value="' + (exam == null ? '' : exam) + '" placeholder="' + escapeHtml(totalText) + '"><small>Puntos · aporta hasta 40</small></label>' +
+      '<span class="assessment-percentage" data-assessment-percentage>' + (calculated ? assessmentDisplay(calculated.examContribution) + ' / 40' : '—') + '</span>' +
+      '<span class="assessment-weighted" data-assessment-weighted>' + (calculated ? assessmentDisplay(calculated.weighted) + ' / 100' : '—') + '</span>' +
       '<button type="button" class="assessment-save" data-assessment-save="' + record.index + '"' + (total == null ? ' disabled title="Configurá el puntaje total primero"' : '') + '>Guardar nota</button></div>';
   }
   function refreshAssessmentPreview(container) {
@@ -1067,8 +1069,8 @@ if (teacherAgenda) {
     const calculated = calculateAssessment(interview, exam, total);
     const percentage = $('[data-assessment-percentage]', container);
     const weighted = $('[data-assessment-weighted]', container);
-    if (percentage) percentage.textContent = calculated ? assessmentDisplay(calculated.percentage) + ' %' : '—';
-    if (weighted) weighted.textContent = calculated ? assessmentDisplay(calculated.weighted) : '—';
+    if (percentage) percentage.textContent = calculated ? assessmentDisplay(calculated.examContribution) + ' / 40' : '—';
+    if (weighted) weighted.textContent = calculated ? assessmentDisplay(calculated.weighted) + ' / 100' : '—';
   }
   async function saveAssessment(recordIndex, button) {
     const record = csvState.records.find(item => item.index === Number(recordIndex));
