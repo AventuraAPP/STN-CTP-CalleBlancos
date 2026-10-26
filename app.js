@@ -700,6 +700,33 @@ if (teacherAgenda) {
   const adminOnlyNotice = document.createElement('p'); adminOnlyNotice.id = 'admin-only-notice'; adminOnlyNotice.className = 'admin-only-notice hidden'; adminOnlyNotice.textContent = 'Acceso solo para el Administrador: la importación de bases, las contraseñas y la eliminación de registros requieren la cuenta administrativa.';
   searchBar.after(reporting); reporting.after(adminOnlyNotice);
   const db = document.createElement('section'); db.className = 'database-summary'; db.id = 'database-summary'; db.innerHTML = '<div><b id="db-total">0</b><span>Registros institucionales</span></div><div><b id="db-visible">0</b><span>En esta especialidad</span></div><div><b id="db-duplicates">0</b><span>Duplicados detectados</span></div><p id="db-source">Los registros se consultan automáticamente desde la base institucional centralizada.</p><section class="teacher-duplicate-summary" id="teacher-duplicate-list" aria-live="polite"></section><div class="database-table-wrap"><table class="database-table"><thead><tr><th>Estudiante</th><th>Identificación</th><th>Especialidad</th><th>Contacto</th><th>Estado y duplicados</th><th>Entrevista (60 %)</th><th>Puntaje examen</th><th>Porcentaje examen (40 %)</th><th>Ponderado / Nota</th><th>Acción</th></tr></thead><tbody id="csv-table-body"><tr><td colspan="10">No hay datos cargados.</td></tr></tbody></table></div>'; searchBar.after(db);
+  const databaseTableWrap = $('.database-table-wrap', db);
+  const databaseHorizontalScrollbar = document.createElement('div');
+  databaseHorizontalScrollbar.className = 'database-horizontal-scroll';
+  databaseHorizontalScrollbar.setAttribute('role', 'scrollbar');
+  databaseHorizontalScrollbar.setAttribute('aria-label', 'Desplazamiento horizontal de la base de datos');
+  const databaseHorizontalInner = document.createElement('div');
+  databaseHorizontalScrollbar.append(databaseHorizontalInner);
+  databaseTableWrap.before(databaseHorizontalScrollbar);
+  let syncingDatabaseScroll = false;
+  function syncDatabaseScrollbar() {
+    if (!databaseTableWrap || !databaseHorizontalInner) return;
+    databaseHorizontalInner.style.width = Math.max(databaseTableWrap.scrollWidth, databaseTableWrap.clientWidth + 1) + 'px';
+    databaseHorizontalScrollbar.scrollLeft = databaseTableWrap.scrollLeft;
+  }
+  databaseHorizontalScrollbar.addEventListener('scroll', () => {
+    if (syncingDatabaseScroll) return;
+    syncingDatabaseScroll = true;
+    databaseTableWrap.scrollLeft = databaseHorizontalScrollbar.scrollLeft;
+    syncingDatabaseScroll = false;
+  });
+  databaseTableWrap.addEventListener('scroll', () => {
+    if (syncingDatabaseScroll) return;
+    syncingDatabaseScroll = true;
+    databaseHorizontalScrollbar.scrollLeft = databaseTableWrap.scrollLeft;
+    syncingDatabaseScroll = false;
+  });
+  window.addEventListener('resize', syncDatabaseScrollbar);
   function csvParse(text) { const rows = [], row = []; let cell = '', quoted = false; for (let i = 0; i < text.length; i++) { const ch = text[i], next = text[i + 1]; if (ch === '"' && quoted && next === '"') { cell += '"'; i++; } else if (ch === '"') quoted = !quoted; else if (ch === ',' && !quoted) { row.push(cell); cell = ''; } else if ((ch === '\n' || ch === '\r') && !quoted) { if (ch === '\r' && next === '\n') i++; row.push(cell); if (row.some(v => v.trim())) rows.push(row.splice(0)); cell = ''; } else cell += ch; } if (cell || row.length) { row.push(cell); rows.push(row); } const headers = (rows.shift() || []).map(h => h.replace(/^\uFEFF/, '').trim()); return rows.map(values => Object.fromEntries(headers.map((h, i) => [h, (values[i] || '').trim()]))); }
   function field(record, matcher) { const key = Object.keys(record).find(k => matcher.test(k)); return key ? record[key] : ''; }
   function normalizeSpecialty(value) { const v = String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); if (v.includes('refriger') || v.includes('aire acondicionado')) return 'Mantenimiento de Sistemas de Aire Acondicionado Industrial'; if (v.includes('ciber')) return 'Ciberseguridad'; if (v.includes('contab')) return 'Contabilidad'; if (v.includes('comercial') || v.includes('servicio al cliente')) return 'Ejecutivo Comercial y Servicio al Cliente'; if (v.includes('textil') || v.includes('diseno de productos')) return 'Diseño de Productos Industriales Textiles'; if (v.includes('electrom')) return 'Electromecánica'; return value || 'Sin especialidad'; }
@@ -1004,9 +1031,11 @@ if (teacherAgenda) {
   }
   function calculateAssessment(interview, examScore, examTotal) {
     if (interview == null || examScore == null || examTotal == null || examTotal <= 0) return null;
-    const percentage = Math.round((examScore / examTotal * 100) * 100) / 100;
-    const interviewContribution = Math.round((interview * 0.60) * 100) / 100;
-    const examContribution = Math.round((percentage * 0.40) * 100) / 100;
+    const interviewResult = Math.min(100, Math.max(0, Number(interview)));
+    const examResult = Math.min(examTotal, Math.max(0, Number(examScore)));
+    const percentage = Math.round((examResult / examTotal * 100) * 100) / 100;
+    const interviewContribution = Math.round((interviewResult * 60 / 100) * 100) / 100;
+    const examContribution = Math.round((examResult / examTotal * 40) * 100) / 100;
     const weighted = Math.round((interviewContribution + examContribution) * 100) / 100;
     return { percentage, interviewContribution, examContribution, weighted };
   }
@@ -1053,12 +1082,12 @@ if (teacherAgenda) {
     const interview = score ? assessmentNumber(score.interview) : null;
     const exam = score ? assessmentNumber(score.examScore) : null;
     const calculated = calculateAssessment(interview, exam, total || assessmentNumber(score?.examTotal));
-    if (!editable) return '<div class="assessment-readonly"><span>' + (calculated ? assessmentDisplay(calculated.interviewContribution) + ' / 60' : '—') + '</span><span>' + assessmentDisplay(exam) + (total ? ' / ' + assessmentDisplay(total) : '') + '</span><b>' + (calculated ? assessmentDisplay(calculated.examContribution) + ' / 40' : '—') + '</b><strong>' + (calculated ? assessmentDisplay(calculated.weighted) + ' / 100' : '—') + '</strong></div>';
+    if (!editable) return '<div class="assessment-readonly"><span>' + (calculated ? assessmentDisplay(interview) + ' % → ' + assessmentDisplay(calculated.interviewContribution) + ' / 60' : '—') + '</span><span>' + assessmentDisplay(exam) + (total ? ' / ' + assessmentDisplay(total) : '') + '</span><b>' + (calculated ? assessmentDisplay(calculated.percentage) + ' % → ' + assessmentDisplay(calculated.examContribution) + ' / 40' : '—') + '</b><strong>' + (calculated ? assessmentDisplay(calculated.weighted) + ' / 100' : '—') + '</strong></div>';
     const totalText = total == null ? 'Configurá el total' : 'de ' + assessmentDisplay(total);
     return '<div class="assessment-entry" data-assessment-row="' + record.index + '" data-exam-total="' + (total == null ? '' : total) + '">' +
-      '<label><input class="assessment-input assessment-interview-input" data-assessment-interview type="number" min="0" max="100" step="0.01" inputmode="decimal" value="' + (interview == null ? '' : interview) + '" placeholder="0–100"><small>Resultado · aporta hasta 60</small></label>' +
-      '<label><input class="assessment-input assessment-exam-input" data-assessment-exam type="number" min="0" ' + (total == null ? 'disabled' : 'max="' + total + '"') + ' step="0.01" inputmode="decimal" value="' + (exam == null ? '' : exam) + '" placeholder="' + escapeHtml(totalText) + '"><small>Puntos · aporta hasta 40</small></label>' +
-      '<span class="assessment-percentage" data-assessment-percentage>' + (calculated ? assessmentDisplay(calculated.examContribution) + ' / 40' : '—') + '</span>' +
+      '<label><input class="assessment-input assessment-interview-input" data-assessment-interview type="number" min="0" max="100" step="0.01" inputmode="decimal" value="' + (interview == null ? '' : interview) + '" placeholder="0–100"><small>Resultado entrevista · aporte <span data-assessment-interview-contribution>' + (calculated ? assessmentDisplay(calculated.interviewContribution) + ' / 60' : '— / 60') + '</span></small></label>' +
+      '<label><input class="assessment-input assessment-exam-input" data-assessment-exam type="number" min="0" ' + (total == null ? 'disabled' : 'max="' + total + '"') + ' step="0.01" inputmode="decimal" value="' + (exam == null ? '' : exam) + '" placeholder="' + escapeHtml(totalText) + '"><small>Puntaje examen · aporte hasta 40</small></label>' +
+      '<span class="assessment-percentage" data-assessment-percentage>' + (calculated ? assessmentDisplay(calculated.percentage) + ' % → ' + assessmentDisplay(calculated.examContribution) + ' / 40' : '—') + '</span>' +
       '<span class="assessment-weighted" data-assessment-weighted>' + (calculated ? assessmentDisplay(calculated.weighted) + ' / 100' : '—') + '</span>' +
       '<button type="button" class="assessment-save" data-assessment-save="' + record.index + '"' + (total == null ? ' disabled title="Configurá el puntaje total primero"' : '') + '>Guardar nota</button></div>';
   }
@@ -1069,7 +1098,9 @@ if (teacherAgenda) {
     const calculated = calculateAssessment(interview, exam, total);
     const percentage = $('[data-assessment-percentage]', container);
     const weighted = $('[data-assessment-weighted]', container);
-    if (percentage) percentage.textContent = calculated ? assessmentDisplay(calculated.examContribution) + ' / 40' : '—';
+    const interviewContribution = $('[data-assessment-interview-contribution]', container);
+    if (interviewContribution) interviewContribution.textContent = calculated ? assessmentDisplay(calculated.interviewContribution) + ' / 60' : '— / 60';
+    if (percentage) percentage.textContent = calculated ? assessmentDisplay(calculated.percentage) + ' % → ' + assessmentDisplay(calculated.examContribution) + ' / 40' : '—';
     if (weighted) weighted.textContent = calculated ? assessmentDisplay(calculated.weighted) + ' / 100' : '—';
   }
   async function saveAssessment(recordIndex, button) {
@@ -1153,6 +1184,7 @@ if (teacherAgenda) {
       });
     }));
     bindAssessmentEvents();
+    syncDatabaseScrollbar();
     if (hasInstitutionalOverview()) updateReportFilters();
   }
     $('#student-search').addEventListener('input', e => { csvState.search = e.target.value; renderDatabase(); });
