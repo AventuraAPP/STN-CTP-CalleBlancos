@@ -1,6 +1,6 @@
 // El formulario público solo crea registros; la lectura institucional requiere
 // un token y nunca se expone la base completa al visitante.
-const SYNC_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyyeomXgKMvXwOJsZq3bjx56tJ0hRpmZcKJ8V9OAUgAOZdDUOJvpVzyd8WLNEcgJCjE/exec';
+const SYNC_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzHK7CGLMVmoP3LPDumanRMMIXRWy1DSfkd9N7zRaZGRUBBm0Ch0e4j5CyiHEqsSxmh/exec';
 
 function nativeRecordToRemotePayload(record) {
   const syncId = record.syncId || record['ID de sincronización'] || record.createdAt || `${record.identification || ''}|${record.name || ''}|${record.specialty || ''}`;
