@@ -413,27 +413,7 @@ function getDocs() { return JSON.parse(localStorage.getItem('stn-documents') || 
 // que una limpieza de caché o una nueva computadora no borre el historial.
 // Solo se incluyen datos completos que fueron verificados en el historial
 // operativo de la STN; no se inventan reservas que no tengan fecha y hora.
-let HISTORICAL_APPOINTMENTS = Object.freeze([
-  {
-    id: 'historical-candy-paola-20261012-1800',
-    specialty: 'Mantenimiento de Sistemas de Aire Acondicionado Industrial',
-    type: 'Examen de admisión',
-    date: '2026-10-12',
-    time: '6:00 p. m.',
-    name: 'Candy Paola Martínez',
-    email: 'candypaolamartinez2705@hotmail.com',
-    professor: 'Roy Brenes Navarro',
-    professorPhone: '6195-5775',
-    restored: true,
-    restoredLabel: 'Cita histórica recuperada'
-  }
-]);
-fetch('data/citas-historicas-2026.json?v=20261011', { cache: 'no-store' }).then(response => response.ok ? response.json() : []).then(rows => {
-  if (!Array.isArray(rows) || !rows.length) return;
-  HISTORICAL_APPOINTMENTS = Object.freeze(rows.filter(row => row && row.id && row.date && row.time));
-  updateDashboard();
-}).catch(() => { /* El respaldo embebido mantiene disponible la cita verificada. */ });
-const DELETED_APPOINTMENTS_KEY = 'stn-deleted-appointments';
+// Las citas históricas se consultan desde la base institucional autenticada.\nlet HISTORICAL_APPOINTMENTS = Object.freeze([]);\nconst DELETED_APPOINTMENTS_KEY = 'stn-deleted-appointments';
 function readDeletedAppointmentKeys() {
   try {
     const value = JSON.parse(localStorage.getItem(DELETED_APPOINTMENTS_KEY) || '[]');
