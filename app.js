@@ -5,7 +5,7 @@ const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector
 // público nunca contiene contraseñas: solo recibe un token de sesión temporal.
 const TEACHER_ADMIN_PASSWORD = null;
 const ADMINISTRATIVE_STAFF_PASSWORD = null;
-const SYNC_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzHK7CGLMVmoP3LPDumanRMMIXRWy1DSfkd9N7zRaZGRUBBm0Ch0e4j5CyiHEqsSxmh/exec';
+const SYNC_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxVTV8oz13fS-xAfjzazJfHkDFxvydPTLBNpscCZZN0o5ASun-6MtQrq_sJ_LlrDhJ6/exec';
 const DEPARTMENT_PASSWORDS = Object.freeze({
   'Ciberseguridad': null,
   'Contabilidad': null,
