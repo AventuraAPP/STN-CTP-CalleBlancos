@@ -969,6 +969,7 @@ if (teacherAgenda) {
   assessmentPanel.id = 'assessment-panel';
   db.before(assessmentPanel);
   const assessmentState = { configs: Object.create(null), records: Object.create(null) };
+  const assessmentSort = { key: 'weighted' };
   const assessmentNumber = value => {
     const parsed = Number(String(value == null ? '' : value).trim().replace(',', '.'));
     return Number.isFinite(parsed) ? parsed : null;
@@ -1021,6 +1022,26 @@ if (teacherAgenda) {
     const weighted = Math.round((interviewContribution + examContribution) * 100) / 100;
     return { percentage, interviewContribution, examContribution, weighted };
   }
+  function assessmentMetric(record, key) {
+    const score = assessmentForRecord(record);
+    const total = assessmentConfigFor(record.specialty) || assessmentNumber(score?.examTotal);
+    const calculated = score ? calculateAssessment(assessmentNumber(score.interview), assessmentNumber(score.examScore), total) : null;
+    if (!calculated) return null;
+    if (key === 'interview') return calculated.interviewContribution;
+    if (key === 'exam') return calculated.examContribution;
+    return calculated.weighted;
+  }
+  function sortAssessmentRows(rows) {
+    return [...rows].sort((left, right) => {
+      const a = assessmentMetric(left, assessmentSort.key);
+      const b = assessmentMetric(right, assessmentSort.key);
+      if (a == null && b == null) return String(left.name || '').localeCompare(String(right.name || ''), 'es');
+      if (a == null) return 1;
+      if (b == null) return -1;
+      if (b !== a) return b - a;
+      return String(left.name || '').localeCompare(String(right.name || ''), 'es');
+    });
+  }
   function renderAssessmentPanel(activeFilter) {
     if (!teacherAccess.role) { assessmentPanel.classList.add('hidden'); assessmentPanel.innerHTML = ''; return; }
     assessmentPanel.classList.remove('hidden');
@@ -1041,7 +1062,13 @@ if (teacherAgenda) {
       '<small>' + escapeHtml(roleHint) + '</small></div><div><label for="assessment-exam-total">Puntaje total de la prueba / examen de admisión</label>' +
       '<div class="assessment-config-control"><input id="assessment-exam-total" type="number" min="1" step="0.01" inputmode="decimal" placeholder="Ej. 100" value="' + (configuredTotal == null ? '' : escapeHtml(configuredTotal)) + '" ' + (editable ? '' : 'disabled') + '><button type="button" id="save-assessment-config" ' + (editable ? '' : 'disabled') + '>Guardar puntaje total</button></div></div></div>' +
       '<div class="assessment-legend"><span class="legend-interview">Entrevista · 60 %</span><span class="legend-exam">Examen · 40 %</span><span class="legend-weighted">Ponderado / Nota final</span></div>' +
+      '<div class="assessment-sort"><label for="assessment-sort">Ordenar calificaciones<select id="assessment-sort"><option value="weighted"' + (assessmentSort.key === 'weighted' ? ' selected' : '') + '>Ponderado / Nota final</option><option value="interview"' + (assessmentSort.key === 'interview' ? ' selected' : '') + '>Aporte de entrevista (sobre 60)</option><option value="exam"' + (assessmentSort.key === 'exam' ? ' selected' : '') + '>Aporte de examen (sobre 40)</option></select></label><span>Mayor a menor</span></div>' +
       '<p class="assessment-explanation">Ingresá directamente el aporte de la entrevista entre 0 y 60 puntos. El examen se convierte proporcionalmente a un aporte máximo de 40 puntos según su puntaje total; ambos forman la nota final sobre 100.</p>';
+    const assessmentSortControl = $('#assessment-sort', assessmentPanel);
+    assessmentSortControl?.addEventListener('change', () => {
+      assessmentSort.key = assessmentSortControl.value;
+      renderDatabase();
+    });
     const configSelector = $('#assessment-config-specialty', assessmentPanel);
     configSelector?.addEventListener('change', () => {
       if (!configSelector.value) return;
@@ -1130,6 +1157,7 @@ if (teacherAgenda) {
     const scopedRows = csvState.records.filter(r => activeFilter === 'Todas' || r.specialty === activeFilter);
     const rows = scopedRows.filter(r => !search || normalizeSearchText([r.name, r.id, r.email, r.phone, r.specialty, r.status, ...Object.values(r.raw)].join(' ')).includes(search));
     const duplicateCount = rows.filter(r => r.duplicate).length;
+    const orderedRows = sortAssessmentRows(rows);
     $('#db-total').textContent = csvState.records.length;
     $('#db-visible').textContent = rows.length;
     $('#db-duplicates').textContent = duplicateCount;
@@ -1140,7 +1168,7 @@ if (teacherAgenda) {
     $('#teacher-duplicate-list').innerHTML = uniqueDuplicates.length
       ? '<div class="teacher-duplicate-head"><div><span>Revisión por especialidad</span><h3>Estudiantes registrados en más de una especialidad</h3><p>Verificá estos casos antes de programar entrevistas o exámenes.</p></div><b>' + uniqueDuplicates.length + '</b></div><div class="duplicate-list-grid">' + uniqueDuplicates.map(r => '<article class="duplicate-card"><strong>' + escapeHtml(r.name) + '</strong><small>' + escapeHtml(r.id || 'Identificación no registrada') + '</small><div class="duplicate-card-specialties">' + r.duplicateSpecialties.map(s => '<span>' + escapeHtml(s) + '</span>').join('') + '</div></article>').join('') + '</div>'
       : '<div class="teacher-duplicate-empty"><b>✓ Sin duplicados en ' + escapeHtml(activeFilter) + '</b><span>Los registros visibles pertenecen a una única especialidad.</span></div>';
-    $('#csv-table-body').innerHTML = rows.length ? rows.map(r => {
+    $('#csv-table-body').innerHTML = orderedRows.length ? orderedRows.map(r => {
       const viewKey = recordViewKey(r);
       const duplicateInfo = r.duplicate ? duplicateSpecialtyMarkup(r.duplicateSpecialties) : '<span class="ok-badge">Registro único</span>';
       const action = '<button class="table-action" data-record="' + r.index + '" type="button">Agendar</button>' + (teacherAccess.role === 'admin' ? '<button class="table-delete database-delete" data-record-delete="' + r.index + '" type="button">Eliminar</button>' : '');
