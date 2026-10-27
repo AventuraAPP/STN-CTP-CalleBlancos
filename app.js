@@ -678,7 +678,7 @@ if (teacherAgenda) {
   const csvLabel = document.createElement('label'); csvLabel.className = 'upload-label hidden'; csvLabel.id = 'csv-import-control'; csvLabel.dataset.adminOnly = 'true'; csvLabel.title = 'Disponible únicamente para el administrador'; csvLabel.innerHTML = '▣ Importar base de datos<input id="csv-upload" type="file" accept=".csv,text/csv" hidden>'; actions.append(csvLabel);
   const exportButton = document.createElement('button'); exportButton.type = 'button'; exportButton.id = 'export-database'; exportButton.className = 'upload-label'; exportButton.dataset.adminOnly = 'true'; exportButton.textContent = '⇩ Exportar respaldo'; exportButton.title = 'Descargar una copia CSV de la base sincronizada'; actions.append(exportButton);
   const searchBar = document.createElement('div'); searchBar.className = 'student-search-bar'; searchBar.innerHTML = '<label for="student-search">Buscar estudiante<input id="student-search" type="search" placeholder="Nombre, identificación, correo o teléfono" autocomplete="off"><button id="clear-student-search" type="button">Limpiar</button></label>'; actions.after(searchBar);
-  const reporting = document.createElement('section'); reporting.id = 'reporting-controls'; reporting.className = 'reporting-controls hidden'; reporting.innerHTML = '<div class="reporting-heading"><div><span>Informes institucionales</span><h3>Generar informe de estudiantes</h3><p>Aplicá los filtros requeridos y descargá el informe institucional en Excel, Word o como versión lista para imprimir/PDF.</p></div><span class="report-access">Administrador y personal administrativo</span></div><div class="report-filter-grid"><label>Especialidad<select id="report-specialty"><option value="Todas">Todas las especialidades</option></select></label><label>Estado<select id="report-status"><option value="Todas">Todos los estados</option></select></label><label>Provincia<select id="report-province"><option value="Todas">Todas las provincias</option></select></label><label>Cantón<select id="report-canton"><option value="Todas">Todos los cantones</option></select></label><label>Desde<input id="report-from" type="date"></label><label>Hasta<input id="report-to" type="date"></label><label>Ordenar por<select id="report-order"><option value="alphabetical">Nombre: A a Z</option><option value="date-desc">Fecha: más reciente</option><option value="date-asc">Fecha: más antigua</option></select></label><label class="report-query">Buscar en todos los campos<input id="report-query" type="search" placeholder="Nombre, cédula, correo, teléfono…"></label></div><fieldset class="report-fields"><legend>Campos adicionales que se incluirán en el informe</legend><label><input type="checkbox" data-report-field="phone" checked> Teléfono</label><label><input type="checkbox" data-report-field="address" checked> Dirección</label><label><input type="checkbox" data-report-field="accommodations" checked> Adecuación curricular</label><label><input type="checkbox" data-report-field="age" checked> Edad</label><label><input type="checkbox" data-report-field="education" checked> Estudios</label><label><input type="checkbox" data-report-field="children" checked> Hijos</label><label><input type="checkbox" data-report-field="country" checked> País de origen</label></fieldset><div class="report-actions"><button id="report-preview" type="button">▣ Vista para imprimir / PDF</button><button id="report-excel" type="button">⇩ Descargar Excel</button><button id="report-word" type="button">⇩ Descargar Word</button><small id="report-count">0 registros seleccionados</small></div></section>';
+  const reporting = document.createElement('section'); reporting.id = 'reporting-controls'; reporting.className = 'reporting-controls hidden'; reporting.innerHTML = '<div class="reporting-heading"><div><span>Informes institucionales</span><h3>Generar informe de estudiantes</h3><p>Aplicá los filtros requeridos y descargá el informe institucional en Excel, Word o como versión lista para imprimir/PDF.</p></div><span class="report-access">Administrador y personal administrativo</span></div><div class="report-filter-grid"><label>Especialidad<select id="report-specialty"><option value="Todas">Todas las especialidades</option></select></label><label>Estado<select id="report-status"><option value="Todas">Todos los estados</option></select></label><label>Provincia<select id="report-province"><option value="Todas">Todas las provincias</option></select></label><label>Cantón<select id="report-canton"><option value="Todas">Todos los cantones</option></select></label><label>Desde<input id="report-from" type="date"></label><label>Hasta<input id="report-to" type="date"></label><label>Ordenar informe por<select id="report-order"><option value="weighted-desc">Ponderado / Nota final: mayor a menor</option><option value="interview-desc">Aporte de entrevista (sobre 60): mayor a menor</option><option value="exam-desc">Aporte de examen (sobre 40): mayor a menor</option><option value="alphabetical">Nombre: A a Z</option><option value="date-desc">Fecha: más reciente</option><option value="date-asc">Fecha: más antigua</option></select></label><label class="report-query">Buscar en todos los campos<input id="report-query" type="search" placeholder="Nombre, cédula, correo, teléfono…"></label></div><fieldset class="report-fields"><legend>Campos adicionales que se incluirán en el informe</legend><label><input type="checkbox" data-report-field="phone" checked> Teléfono</label><label><input type="checkbox" data-report-field="address" checked> Dirección</label><label><input type="checkbox" data-report-field="accommodations" checked> Adecuación curricular</label><label><input type="checkbox" data-report-field="age" checked> Edad</label><label><input type="checkbox" data-report-field="education" checked> Estudios</label><label><input type="checkbox" data-report-field="children" checked> Hijos</label><label><input type="checkbox" data-report-field="country" checked> País de origen</label></fieldset><div class="report-actions"><button id="report-preview" type="button">▣ Vista para imprimir / PDF</button><button id="report-excel" type="button">⇩ Descargar Excel</button><button id="report-word" type="button">⇩ Descargar Word</button><small id="report-count">0 registros seleccionados</small></div></section>';
   const adminOnlyNotice = document.createElement('p'); adminOnlyNotice.id = 'admin-only-notice'; adminOnlyNotice.className = 'admin-only-notice hidden'; adminOnlyNotice.textContent = 'Acceso solo para el Administrador: la importación de bases, las contraseñas y la eliminación de registros requieren la cuenta administrativa.';
   searchBar.after(reporting); reporting.after(adminOnlyNotice);
   const db = document.createElement('section'); db.className = 'database-summary'; db.id = 'database-summary'; db.innerHTML = '<div><b id="db-total">0</b><span>Registros institucionales</span></div><div><b id="db-visible">0</b><span>En esta especialidad</span></div><div><b id="db-duplicates">0</b><span>Duplicados detectados</span></div><p id="db-source">Los registros se consultan automáticamente desde la base institucional centralizada.</p><section class="teacher-duplicate-summary" id="teacher-duplicate-list" aria-live="polite"></section><div class="database-table-wrap"><table class="database-table"><thead><tr><th>Estudiante</th><th>Identificación</th><th>Especialidad</th><th>Contacto</th><th>Estado y duplicados</th><th>Entrevista (60 %)</th><th>Puntaje examen</th><th>Porcentaje examen (40 %)</th><th>Ponderado / Nota</th><th>Acción</th></tr></thead><tbody id="csv-table-body"><tr><td colspan="10">No hay datos cargados.</td></tr></tbody></table></div>'; searchBar.after(db);
@@ -848,7 +848,7 @@ if (teacherAgenda) {
   }
   function updateDatabaseCounters() { const pre = csvState.records.filter(r => !/matriculad[oa]/i.test(r.status) || /pre.?matriculad/i.test(r.status)).length, mat = csvState.records.filter(r => /matriculad[oa]/i.test(r.status) && !/pre.?matriculad/i.test(r.status)).length; const preCount = $('#pre-count'); const matCount = $('#mat-count'); if (preCount) preCount.textContent = pre; if (matCount) matCount.textContent = mat; }
   function normalizeSearchText(value) { return String(value ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\s-]+/g, ' ').trim(); }
-  const reportState = { specialty: 'Todas', status: 'Todas', province: 'Todas', canton: 'Todas', from: '', to: '', query: '', order: 'alphabetical', fields: { phone: true, address: true, accommodations: true, age: true, education: true, children: true, country: true } };
+  const reportState = { specialty: 'Todas', status: 'Todas', province: 'Todas', canton: 'Todas', from: '', to: '', query: '', order: 'weighted-desc', fields: { phone: true, address: true, accommodations: true, age: true, education: true, children: true, country: true } };
   const reportField = name => $(`#report-${name}`);
   const reportUniqueValues = key => [...new Set(csvState.records.map(record => String(record[key] || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
   function fillReportSelect(name, values, allLabel) {
@@ -866,6 +866,19 @@ if (teacherAgenda) {
     const rows = getReportRows();
     const count = $('#report-count'); if (count) count.textContent = `${rows.length} registro${rows.length === 1 ? '' : 's'} seleccionado${rows.length === 1 ? '' : 's'}`;
   }
+  function reportAssessment(record) {
+    const score = assessmentForRecord(record);
+    if (!score) return null;
+    const total = assessmentConfigFor(record.specialty) || assessmentNumber(score.examTotal);
+    return calculateAssessment(assessmentNumber(score.interview), assessmentNumber(score.examScore), total);
+  }
+  function reportGradeValue(record, order) {
+    const result = reportAssessment(record);
+    if (!result) return null;
+    if (order === 'interview-desc') return result.interviewContribution;
+    if (order === 'exam-desc') return result.examContribution;
+    return result.weighted;
+  }
   function getReportRows() {
     const from = reportState.from ? new Date(`${reportState.from}T00:00:00`) : null;
     const to = reportState.to ? new Date(`${reportState.to}T23:59:59`) : null;
@@ -882,6 +895,14 @@ if (teacherAgenda) {
         && matchesText;
     });
     return filtered.sort((a, b) => {
+      if (['weighted-desc', 'interview-desc', 'exam-desc'].includes(reportState.order)) {
+        const aValue = reportGradeValue(a, reportState.order);
+        const bValue = reportGradeValue(b, reportState.order);
+        if (aValue == null && bValue != null) return 1;
+        if (aValue != null && bValue == null) return -1;
+        if (aValue != null && bValue != null && bValue !== aValue) return bValue - aValue;
+        return String(a.name || '').localeCompare(String(b.name || ''), 'es', { sensitivity: 'base' });
+      }
       if (reportState.order === 'alphabetical') return String(a.name || '').localeCompare(String(b.name || ''), 'es', { sensitivity: 'base' });
       const aDate = parseRecordDate(a.timestamp)?.getTime() || 0, bDate = parseRecordDate(b.timestamp)?.getTime() || 0;
       return reportState.order === 'date-asc' ? aDate - bDate : bDate - aDate;
@@ -898,8 +919,13 @@ if (teacherAgenda) {
     { key: 'children', label: 'Hijos', value: record => field(record.raw, /cu[aá]ntos hijos/i) },
     { key: 'country', label: 'País de origen', value: record => field(record.raw, /pa[ií]s de origen/i) }
   ];
+  const reportGrade = (record, property, maximum) => {
+    const result = reportAssessment(record);
+    if (!result || result[property] == null) return 'Sin calificar';
+    return `${formatAssessment(result[property])} / ${maximum}`;
+  };
   const reportColumns = () => [
-    { label: 'Estudiante', value: record => record.name }, { label: 'Identificación', value: record => record.id }, { label: 'Especialidad', value: record => record.specialty }, { label: 'Estado', value: record => record.status }, { label: 'Correo electrónico', value: record => record.email }, { label: 'Fecha de prematrícula', value: record => record.timestamp }, { label: 'Duplicado en otras especialidades', value: record => { const others = [...new Set((record.duplicateSpecialties || []).filter(specialty => specialty && specialty !== record.specialty))]; return others.length ? others.join(' · ') : 'No'; } },
+    { label: 'Estudiante', value: record => record.name }, { label: 'Identificación', value: record => record.id }, { label: 'Especialidad', value: record => record.specialty }, { label: 'Aporte de entrevista (sobre 60)', value: record => reportGrade(record, 'interviewContribution', 60) }, { label: 'Aporte de examen (sobre 40)', value: record => reportGrade(record, 'examContribution', 40) }, { label: 'Ponderado / Nota final', value: record => reportGrade(record, 'weighted', 100) }, { label: 'Estado', value: record => record.status }, { label: 'Correo electrónico', value: record => record.email }, { label: 'Fecha de prematrícula', value: record => record.timestamp }, { label: 'Duplicado en otras especialidades', value: record => { const others = [...new Set((record.duplicateSpecialties || []).filter(specialty => specialty && specialty !== record.specialty))]; return others.length ? others.join(' · ') : 'No'; } },
     ...reportExtraColumns.filter(column => reportState.fields[column.key])
   ];
   const reportOrientation = columns => columns.length > 7 ? 'landscape' : 'portrait';
@@ -915,7 +941,8 @@ if (teacherAgenda) {
     return rows;
   }
   function reportFilterText() {
-    const orderLabel = reportState.order === 'alphabetical' ? 'Nombre: A a Z' : (reportState.order === 'date-asc' ? 'Fecha: más antigua' : 'Fecha: más reciente');
+    const orderLabels = { 'weighted-desc': 'Ponderado / Nota final: mayor a menor', 'interview-desc': 'Aporte de entrevista (sobre 60): mayor a menor', 'exam-desc': 'Aporte de examen (sobre 40): mayor a menor', alphabetical: 'Nombre: A a Z', 'date-asc': 'Fecha: más antigua', 'date-desc': 'Fecha: más reciente' };
+    const orderLabel = orderLabels[reportState.order] || orderLabels['weighted-desc'];
     const filters = [['Especialidad', reportState.specialty], ['Estado', reportState.status], ['Provincia', reportState.province], ['Cantón', reportState.canton], ['Desde', reportState.from || 'Sin límite'], ['Hasta', reportState.to || 'Sin límite'], ['Búsqueda', reportState.query || 'Sin filtro'], ['Orden', orderLabel]].filter(([, value]) => value && value !== 'Todas');
     return filters.length ? filters.map(([key, value]) => `${key}: ${value}`).join(' · ') : 'Informe general institucional, sin filtros.';
   }
