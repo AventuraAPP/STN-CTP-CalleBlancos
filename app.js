@@ -41,6 +41,14 @@ async function authenticateTeacher(password) {
   return requestRemoteJson({ action: 'auth', challenge: challenge.challenge, proof });
 }
 
+function registerPublicPageView() {
+  const key = 'stn-page-view-counted-2027';
+  if (sessionStorage.getItem(key)) return;
+  sessionStorage.setItem(key, '1');
+  requestRemoteJson({ action: 'page-view' }).catch(() => sessionStorage.removeItem(key));
+}
+registerPublicPageView();
+
 function nativeRecordToRemotePayload(record) {
   const syncId = record.syncId || record['ID de sincronización'] || record.createdAt || `${record.identification || ''}|${record.name || ''}|${record.specialty || ''}`;
   return {
@@ -359,6 +367,19 @@ if (generalDashboard) {
     installAdminDeleteControls();
   };
 
+  async function loadPageViewCounter() {
+    const card = $('#page-view-stat'), value = $('#page-views-count'), updated = $('#page-views-updated');
+    if (teacherAccess.role !== 'admin' || !card || !value) return;
+    try {
+      const payload = await requestRemoteJson({ action: 'page-metrics', authToken: getAuthToken() });
+      if (teacherAccess.role !== 'admin') return;
+      value.textContent = Number(payload.pageViews || 0).toLocaleString('es-CR');
+      if (updated) updated.textContent = `Actualizado ${new Date(payload.updatedAt || Date.now()).toLocaleString('es-CR')}`;
+    } catch (_) {
+      value.textContent = '—';
+      if (updated) updated.textContent = 'No disponible';
+    }
+  }
   function loadRemotePrematriculas() {
     if (!SYNC_ENDPOINT || SYNC_ENDPOINT.includes('PASTE_') || !getAuthToken()) return;
     requestRemoteJson({ action: 'data', authToken: getAuthToken() }).then(payload => {
@@ -596,6 +617,9 @@ function applyTeacherAccess() {
   if (!admin) { adminPasswordPanel?.classList.add('hidden'); adminPasswordToggle?.setAttribute('aria-expanded', 'false'); if (adminPasswordToggle) adminPasswordToggle.textContent = '▸ Contraseñas por departamento'; }
   const adminOnlyNotice = $('#admin-only-notice');
   if (adminOnlyNotice) adminOnlyNotice.classList.toggle('hidden', teacherAccess.role !== 'administrative');
+  const pageViewStat = $('#page-view-stat');
+  pageViewStat?.classList.toggle('hidden', !admin);
+  if (admin) loadPageViewCounter();
   if (admin) renderAdminPasswords();
   renderAppointments(specialty || $('.specialty-tab.active')?.dataset.specialty || 'Todas');
 }
