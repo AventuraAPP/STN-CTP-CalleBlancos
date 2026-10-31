@@ -265,7 +265,7 @@ $$('[data-date]').forEach(item => { const passed = new Date(`${item.dataset.date
 
 const samplePosts = [
   { id: 'welcome', name: 'Equipo STN', initials: 'ST', time: 'Información oficial', text: '¡Bienvenidas y bienvenidos! Usá este espacio para consultar sobre el proceso de admisión 2027.', likes: 14 },
-  { id: 'guide', name: 'Orientación STN', initials: 'OR', time: 'Hace poco', text: 'Recordá completar la prematrícula y reservar tu cita para entrevista o examen.', likes: 8 }
+  { id: 'guide', name: 'Orientación STN', initials: 'OR', time: 'Actualizado', text: 'La lista oficial de personas admitidas para el curso lectivo 2027 ya fue publicada. Consultala por número de documento.', likes: 8 }
 ];
 function loadPosts() { return JSON.parse(localStorage.getItem('stn-posts') || 'null') || samplePosts; }
 function savePosts(posts) { localStorage.setItem('stn-posts', JSON.stringify(posts)); }
@@ -639,8 +639,9 @@ $('#edit-ticker').addEventListener('click', () => { const message = prompt('Mens
 setTickerMessage(defaultTickerMessage);
 
 const assistantReplies = [
-  { keys: ['hola', 'buenas', 'buenos dias', 'buenas tardes'], text: '¡Hola! Soy el asistente STN. Puedo guiarte paso a paso por la oferta 2027, la prematrícula, las citas y los canales oficiales.' },
-  { keys: ['prematr', 'formulario', 'inscrib', 'inscrip'], text: 'La prematrícula 2027 se completa en el formulario oficial. Al enviarlo, tus datos quedan registrados para el proceso de admisión. Podés abrirlo desde el botón Prematrícula 2027.', actions: [{ label: 'Abrir prematrícula', href: 'prematricula.html?v=20261020-confirmed-save' }] },
+  { keys: ['hola', 'buenas', 'buenos dias', 'buenas tardes'], text: '¡Hola! Soy el asistente STN. La etapa de entrevistas y exámenes ya finalizó; actualmente está publicada la lista oficial de personas admitidas para el curso lectivo 2027.' },
+  { keys: ['admitid', 'lista', 'resultado', 'publicacion', 'publica'], text: 'La lista oficial de personas admitidas para el curso lectivo 2027 está disponible en esta página. Por protección de datos, se identifica a cada persona mediante su número de documento. La apertura de cada especialidad está sujeta a completar el cupo establecido.', actions: [{ label: 'Ver lista de admitidos', href: '#admitidos' }] },
+  { keys: ['prematr', 'formulario', 'inscrib', 'inscrip'], text: 'La etapa de prematrícula, entrevistas y exámenes de admisión ya concluyó. En este momento la información vigente es la publicación de la lista oficial de personas admitidas para el curso lectivo 2027.', actions: [{ label: 'Ver lista de admitidos', href: '#admitidos' }] },
   { keys: ['ciber', 'seguridad'], text: 'Ciberseguridad prepara en protección de sistemas, redes, información y entornos digitales. Es una de las especialidades de la oferta técnica nocturna 2027.' },
   { keys: ['contab'], text: 'Contabilidad desarrolla competencias para registrar, analizar y comunicar información financiera y apoyar decisiones administrativas.' },
   { keys: ['comercial', 'servicio al cliente', 'ventas'], text: 'Ejecutivo Comercial y Servicio al Cliente forma en comunicación, ventas, relaciones comerciales y experiencias de servicio.' },
@@ -648,10 +649,10 @@ const assistantReplies = [
   { keys: ['electrom'], text: 'Electromecánica integra electricidad, mecánica, automatización y mantenimiento para responder a las necesidades de la industria.' },
   { keys: ['textil', 'diseño', 'productos industriales'], text: 'Diseño de Productos Industriales Textiles combina diseño, producción, tecnologías aplicadas, acabados y emprendimiento.' },
   { keys: ['especial', 'oferta', 'carrera'], text: 'La oferta técnica nocturna 2027 contempla seis especialidades: Ciberseguridad, Contabilidad, Ejecutivo Comercial y Servicio al Cliente, Mantenimiento de Sistemas de Aire Acondicionado Industrial, Electromecánica y Diseño de Productos Industriales Textiles.' },
-  { keys: ['hora', 'horario', 'noche', 'cita', 'examen', 'entrevista'], text: 'Las citas de entrevista y examen las administra el docente de cada especialidad desde el Portal docente, de lunes a viernes, entre las 6:00 p. m. y las 9:00 p. m. El estudiante recibe confirmación con fecha, hora y contacto del profesor.' },
-  { keys: ['fecha', 'calendario', 'cuando', 'agosto', 'octubre'], text: 'El calendario incluye entrevistas y exámenes del lunes 12 al viernes 16 de octubre de 2026. Revisá la sección Proceso para conocer las demás etapas.' },
+  { keys: ['hora', 'horario', 'noche', 'cita', 'examen', 'entrevista'], text: 'Las entrevistas y los exámenes de admisión ya finalizaron. El estado vigente del proceso es la publicación de la lista oficial de personas admitidas para el curso lectivo 2027. Para consultas particulares, escribinos por WhatsApp.' },
+  { keys: ['fecha', 'calendario', 'cuando', 'agosto', 'octubre'], text: 'El calendario de entrevistas y exámenes ya concluyó. Actualmente se encuentra publicada la lista oficial de personas admitidas para el curso lectivo 2027.' },
   { keys: ['whatsapp', 'teléfono', 'telefono', 'contacto', 'ubicación', 'ubicacion'], text: 'El canal oficial de contacto es WhatsApp 6195-5775. También podés usar el botón WhatsApp de esta página para abrir una conversación directa.', actions: [{ label: 'Abrir WhatsApp', href: 'https://wa.me/50661955775?text=Hola%20STN%2C%20tengo%20una%20consulta%20sobre%20Admisi%C3%B3n%202027' }] },
-  { keys: ['docente', 'portal', 'teams', 'duplicado', 'base de datos'], text: 'El Portal docente está protegido. Cada departamento consulta su especialidad, revisa registros, detecta duplicados y organiza las citas de entrevistas y exámenes.' },
+  { keys: ['docente', 'portal', 'teams', 'duplicado', 'base de datos'], text: 'El Portal docente está protegido. Cada departamento consulta los registros y resultados de su especialidad; la información activa para la comunidad es la lista publicada de personas admitidas.' },
   { keys: ['requisito', 'documento', 'titulo', 'bachiller', 'noveno'], text: 'Completá el formulario con los datos de la cédula y adjuntá el título de noveno año o bachillerato cuando corresponda. Revisá cada campo antes de enviar.' }
 ];
 function normalizeAssistantText(value) { return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
