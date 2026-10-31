@@ -781,6 +781,11 @@ if (teacherAgenda) {
       // copia antigua sería confuso y permitiría que datos eliminados reaparezcan.
       csvState.records.splice(0, csvState.records.length);
       renderDatabase();
+      updateDatabaseCounters();
+      ['#pre-count', '#mat-count', '#doc-count', '#appointment-count'].forEach(selector => {
+        const element = $(selector);
+        if (element) element.textContent = '—';
+      });
       $('#db-source').textContent = message;
     };
     const applyPayload = payload => {
@@ -834,11 +839,27 @@ if (teacherAgenda) {
     const remoteParams = new URLSearchParams({ action: 'data', authToken: getAuthToken(), _: String(Date.now()) });
     fetch(`${SYNC_ENDPOINT}?${remoteParams.toString()}`, { cache: 'no-store', mode: 'cors', headers: { Accept: 'application/json' } })
       .then(response => { if (!response.ok) throw new Error(`HTTP ${response.status}`); return response.json(); })
-      .then(payload => { if (!applyPayload(payload)) requestJsonpFallback(); })
+      .then(payload => {
+        if (payload?.ok === false) {
+          const message = String(payload.message || 'La sesión institucional no está vigente.');
+          fail(/auth|sesión|session|credencial|token/i.test(message)
+            ? 'La sesión institucional expiró o no es válida. Cerrá sesión e ingresá nuevamente para sincronizar la base.'
+            : message);
+          return;
+        }
+        if (!applyPayload(payload)) requestJsonpFallback();
+      })
       .catch(() => requestJsonpFallback());
   }
   async function loadTeacherDatabase() {
     try {
+      // Estado explícito de sincronización: nunca mostrar ceros como si fueran
+      // datos reales mientras la fuente institucional está respondiendo.
+      ['#pre-count', '#mat-count', '#doc-count', '#appointment-count'].forEach(selector => {
+        const element = $(selector);
+        if (element) element.textContent = '…';
+      });
+      $('#db-source').textContent = 'Sincronizando la base institucional…';
       // La fuente institucional remota es la única fuente cuando está disponible.
       // Cargar primero la copia CSV local (124) y después la remota (137) hacía que
       // el contador alternara en cada refresco y parecía que los registros regresaban.
