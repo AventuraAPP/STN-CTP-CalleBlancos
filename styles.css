@@ -486,3 +486,5 @@
 @media(max-width:540px){.availability-promo{padding:20px;border-radius:19px}.availability-grid{grid-template-columns:1fr}.availability-card:last-child{grid-column:auto}.availability-actions{align-items:flex-start;flex-direction:column;gap:9px}.availability-actions .btn{width:100%}}
 
 .page-view-stat{position:relative}.page-view-stat small{font-size:.58rem;color:#7fb4d7;margin-top:2px}.page-view-stat b{color:#f6d36b}
+
+.admitted-availability{margin:18px 0 0;padding:13px 16px;border-left:4px solid #18a77b;border-radius:10px;background:#e7faf2;color:#16684f;font-size:.88rem;line-height:1.5}.admitted-availability b{color:#0b7e5d}
