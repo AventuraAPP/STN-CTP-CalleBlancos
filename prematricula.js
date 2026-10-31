@@ -112,6 +112,11 @@ form?.addEventListener('submit', async event => {
     return;
   }
   const values = Object.fromEntries(new FormData(form).entries());
+  if (String(values.specialty || '').trim().toLowerCase() === 'ciberseguridad') {
+    message.classList.add('error');
+    message.textContent = 'Ciberseguridad no está disponible para nuevas prematrículas. Seleccioná otra especialidad técnica.';
+    return;
+  }
   const file = form.querySelector('[name="titleFile"]')?.files?.[0];
   const submitButton = form.querySelector('[type="submit"]');
   let attachment = null;
