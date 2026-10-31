@@ -31,7 +31,7 @@
         <label>Teléfono principal *<input name="phone" required placeholder="0000-0000"></label>
         <label>Estudios últimos alcanzados *<select name="education" required><option value="">Seleccioná una opción</option><option>Noveno año de Secundaria</option><option>Bachiller de Secundaria</option><option>Graduado de Técnico Medio</option><option>Diplomado Universitario</option><option>Bachiller Universitario</option><option>Licenciado(a)</option></select></label>
         <label>Adjuntar título de noveno o bachillerato<input name="titleFile" type="file" accept=".pdf,image/*"></label>
-        <label>Especialidad que desea matricular *<select name="specialty" required><option value="">Seleccioná una especialidad</option><option>Ciberseguridad</option><option>Electromecánica</option><option>Mantenimiento de Sistemas de Aire Acondicionado Industrial</option><option>Diseño de Productos Industriales Textiles</option><option>Ejecutivo Comercial y Servicio al Cliente</option><option>Contabilidad</option></select></label>
+        <label>Especialidad que desea matricular *<select name="specialty" required><option value="">Seleccioná una especialidad</option><option disabled>Ciberseguridad — no disponible para prematrícula</option><option>Electromecánica</option><option>Mantenimiento de Sistemas de Aire Acondicionado Industrial</option><option>Diseño de Productos Industriales Textiles</option><option>Ejecutivo Comercial y Servicio al Cliente</option><option>Contabilidad</option></select><small class="specialty-availability-note">Ciberseguridad no está disponible para nuevas prematrículas. Podés registrar tu interés en las demás especialidades técnicas.</small></label>
         <label>¿Por qué medio se enteró? *<select name="source" required><option value="">Seleccioná una opción</option><option>Open House</option><option>Página Facebook de la Sección Técnica Nocturna</option><option>Redes sociales</option><option>Amigos o conocidos</option></select></label>
         <label>Correo electrónico personal *<input name="email" type="email" required placeholder="estudiante@correo.com"></label>
         <label>País de origen *<select name="country" required><option>Costa Rica</option><option>Nicaragua</option><option>Venezuela</option><option>Colombia</option><option>Otro</option></select></label>
@@ -42,12 +42,12 @@
         <label>¿Es madre, padre o encargado? *<select name="guardian" required><option>Si</option><option>No</option></select></label>
         <label>¿Cuántos hijos tiene? *<select name="children" required><option>1-2</option><option>3-4</option><option>Más de 4</option><option>No tengo hijos</option></select></label>
         <label>Posee discapacidad *<select name="disability" required><option>Ninguna</option><option>Sensorial visual</option><option>Sensorial auditiva</option><option>Motriz</option><option>Otra</option></select></label>
-        <div class="native-prematricula-footer full-field"><b>Nota importante</b><span>La prematrícula inicia el proceso; posteriormente se comunicarán las fechas de entrevista, examen y entrega de documentos.</span></div>
+        <div class="native-prematricula-footer full-field"><b>Nota importante</b><span>La prematrícula registra tu interés en una especialidad disponible. Ciberseguridad no admite nuevas prematrículas en este momento.</span></div>
         <button class="btn btn-primary full-field" type="submit">Enviar prematrícula al sistema <span>→</span></button>
         <p class="form-message full-field" id="public-prematricula-message" role="status"></p>
       </form>
     </section>
   </main>
-  <script src="prematricula.js?v=20261026-institutional"></script>
+  <script src="prematricula.js?v=20261030-ciber-bloqueado"></script>
 </body>
 </html>
