@@ -34,6 +34,20 @@ function requestRemoteJson(params = {}) {
     .then(response => { if (!response.ok) throw new Error(`HTTP ${response.status}`); return response.json(); })
     .then(payload => { if (!payload?.ok) throw new Error(payload?.message || 'La base institucional rechazó la solicitud.'); return payload; });
 }
+async function loadPageViewCounter() {
+  const card = $('#page-view-stat'), value = $('#page-views-count'), updated = $('#page-views-updated');
+  if (teacherAccess.role !== 'admin' || !card || !value) return;
+  try {
+    const payload = await requestRemoteJson({ action: 'page-metrics', authToken: getAuthToken() });
+    if (teacherAccess.role !== 'admin') return;
+    value.textContent = Number(payload.pageViews || 0).toLocaleString('es-CR');
+    if (updated) updated.textContent = `Actualizado ${new Date(payload.updatedAt || Date.now()).toLocaleString('es-CR')}`;
+  } catch (_) {
+    value.textContent = '—';
+    if (updated) updated.textContent = 'No disponible';
+  }
+}
+
 async function authenticateTeacher(password) {
   const challenge = await requestRemoteJson({ action: 'challenge' });
   const passwordHash = await sha256Hex(password);
